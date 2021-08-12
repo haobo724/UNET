@@ -234,6 +234,7 @@ if __name__ == "__main__":
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))
     print(modelslist)
+    print(modelslist[-1])
     # g=infer_gui(modelslist[0])
     # image=g.forward(r'C:\Users\z00461wk\Desktop\Pressure_measure_activate tf1x\Camera_util/breast.jpg')
     # print(image.shape)
