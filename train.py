@@ -53,7 +53,7 @@ class unet_train(pl.LightningModule):
 
         # self.model = UNET(in_channels=3, out_channels=1).cuda()
         self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-
+        self.weights=torch.tensor(np.array([0.3,0.7])).float()
         self.loss = nn.BCEWithLogitsLoss()
         self.train_logger = logging.getLogger(__name__)
         self.learning_rate = None
@@ -101,7 +101,6 @@ class unet_train(pl.LightningModule):
         # pred=preds.int().unsqueeze(dim=1)
         y = y.long()
         RS_IOU = iou(pred.unsqueeze(1), y.unsqueeze(1))
-        print(RS_IOU)
 
         RS_recall = validation_recall(pred.unsqueeze(1), y.unsqueeze(1))
         RS_precision = validation_precision(pred.unsqueeze(1), y.unsqueeze(1))
@@ -196,6 +195,7 @@ class unet_train(pl.LightningModule):
 
 
 def main():
+    pl.seed_everything(1234)
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
@@ -249,8 +249,7 @@ def main():
 
     )
     logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'), name='my_model')
-
-    trainer = pl.Trainer.from_argparse_args(args, callbacks=[ckpt_callback], logger=logger)
+    trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3,callbacks=[ckpt_callback], logger=logger)
     # lr_finder=trainer.tuner.lr_find(model)
     # fig=lr_finder.plot(suggest=True)
     # fig.show()
