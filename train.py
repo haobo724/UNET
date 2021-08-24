@@ -4,6 +4,8 @@ import numpy as np
 
 import glob
 
+import torchmetrics
+
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
 import logging
@@ -94,14 +96,13 @@ class unet_train(pl.LightningModule):
         preds = torch.sigmoid(y_hat.squeeze())
         pred = (preds > 0.6).float()
 
-        iou = pl.metrics.IoU(num_classes=2, absent_score=1, reduction='none').cuda()
-        validation_recall = pl.metrics.Recall(average='macro', mdmc_average='samplewise',is_multiclass=True, num_classes=2).cuda()
-        validation_precision = pl.metrics.Precision(average='macro', mdmc_average='samplewise',is_multiclass=True, num_classes=2).cuda()
-        validation_ACC = pl.metrics.Accuracy().cuda()
+        iou =torchmetrics.IoU(num_classes=2, absent_score=1, reduction='none').cuda()
+        validation_recall = torchmetrics.Recall(average='macro', mdmc_average='samplewise',multiclass=True, num_classes=2).cuda()
+        validation_precision = torchmetrics.Precision(average='macro', mdmc_average='samplewise', multiclass=True, num_classes=2).cuda()
+        validation_ACC = torchmetrics.Accuracy().cuda()
         # pred=preds.int().unsqueeze(dim=1)
         y = y.long()
         RS_IOU = iou(pred.unsqueeze(1), y.unsqueeze(1))
-
         RS_recall = validation_recall(pred.unsqueeze(1), y.unsqueeze(1))
         RS_precision = validation_precision(pred.unsqueeze(1), y.unsqueeze(1))
         acc = validation_ACC(pred.unsqueeze(1), y.unsqueeze(1))
@@ -264,8 +265,8 @@ def main():
         os.makedirs(os.path.join('.', 'lightning_logs', f'version_{trainer.logger.version}'))
 
     trainer.fit(model, train_loader, val_loader)
-    trainer.save_checkpoint(
-        os.path.join('.', 'lightning_logs', f'version_{trainer.logger.version}', 'final.ckpt'))
+    # trainer.save_checkpoint(
+    #     os.path.join('.', 'lightning_logs', f'version_{trainer.logger.version}', 'final.ckpt'))
     print('THE END')
 
 

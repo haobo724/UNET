@@ -1,11 +1,13 @@
 import os
+import shutil
 import time
 
 import cv2
 import numpy as np
-
+import pandas as pd
 import glob
-from caculate import calculate_eval_matrix,calculate_IoU,calculate_acc
+from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
+
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
 import albumentations as A
@@ -14,7 +16,7 @@ import PIL.Image as Image
 import torchvision
 from train import unet_train
 import matplotlib.pyplot  as plt
-from model import UNET,UNET_S
+from model import UNET, UNET_S
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 4
@@ -26,18 +28,10 @@ PIN_MEMORY = True
 LOAD_MODEL = False
 
 
-def infer(models, raw_dir):
+def infer(models, raw_dir, sufix):
     if raw_dir is None or models is None:
         ValueError('raw_dir or model is missing')
 
-    # train_imgs = [
-    #     {keys[0]: img, keys[1]: seg} for img, seg in
-    #     zip(images[350:360], labels[350:360])
-    # ]
-    # val_imgs = [
-    #     {keys[0]: img, keys[1]: seg} for img, seg in
-    #     zip(images[350:360], labels[350:360])
-    # ]
     infer_xform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
@@ -61,10 +55,19 @@ def infer(models, raw_dir):
     )
 
     infer_data = sorted(glob.glob(os.path.join(raw_dir, "*.PNG")))
+    infer_data2 = sorted(glob.glob(os.path.join(raw_dir, "*.jpg")))
+    infer_data += infer_data2
     print(infer_data)
     filename = os.listdir(raw_dir)
 
-    folder = "saved_images/"
+    folder = "saved_images_" + sufix + '//'
+
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    else:
+        shutil.rmtree(folder)
+        os.makedirs(folder)
+
     curtime = time.time()
     model = unet_train.load_from_checkpoint(models)
 
@@ -83,10 +86,11 @@ def infer(models, raw_dir):
 
         x = torch.unsqueeze(x, dim=0)
         timebegin = time.time()
+        model.freeze()
         model.eval()
         y_hat = model(x)
         preds = torch.sigmoid(y_hat.squeeze())
-        preds = (preds > 0.6).float()
+        preds = (preds > 0.8).float()
 
         preds = resize_xform(image=preds.cpu().numpy())
         preds = preds["image"].numpy()
@@ -110,18 +114,18 @@ def infer(models, raw_dir):
     end = time.time()
     print(f'Totally used:{end - curtime} s')
 
-def metrics(models,img_dir,mask_dir):
+
+def metrics(models, img_dir, mask_dir):
     if img_dir is None or models is None:
         ValueError('raw_dir or model is missing')
     filename = sorted(glob.glob(os.path.join(mask_dir, "*.jpg")))
     filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
-    mask_sum=[]
-    img_sum=[]
+    mask_sum = []
+    img_sum = []
     for mask in filename:
-        mask_img=cv2.imread(mask,0)/255
+        mask_img = cv2.imread(mask, 0) / 255
         mask_sum.append(mask_img)
-    mask_sum=np.array(mask_sum)
-    print(mask_sum.shape)
+    mask_sum = np.array(mask_sum)
     model = unet_train.load_from_checkpoint(models)
     infer_xform = A.Compose(
         [
@@ -155,17 +159,41 @@ def metrics(models,img_dir,mask_dir):
         preds = (preds > 0.6).float()
 
         preds = resize_xform(image=preds.cpu().numpy())
-        preds = preds["image"].numpy()*1
-        preds=preds.squeeze()
+        preds = preds["image"].numpy() * 1
+        preds = preds.squeeze()
         img_sum.append(preds)
-    print(time.time()-curtime)
-    img_sum=np.array(img_sum)
+    print(time.time() - curtime)
+    img_sum = np.array(img_sum)
     print(img_sum.shape)
-    assert np.max(img_sum)==np.max(mask_sum)
-    assert np.min(img_sum)==np.min(mask_sum)
-    eval_mat=calculate_eval_matrix(2,mask_sum,img_sum)
+    assert np.max(img_sum) == np.max(mask_sum)
+    assert np.min(img_sum) == np.min(mask_sum)
+    eval_mat = calculate_eval_matrix(2, mask_sum, img_sum)
     print(calculate_IoU(eval_mat))
+    print(np.mean(calculate_IoU(eval_mat)))
     print(calculate_acc(eval_mat))
+    single_metric(img_sum, mask_sum)
+
+
+def single_metric(preds, masks):
+    iou, acc = [], []
+    for pred, mask in zip(preds, masks):
+        eval_mat = calculate_eval_matrix(2, mask, pred)
+        # print(calculate_IoU(eval_mat))
+        iou.append(np.mean(calculate_IoU(eval_mat)))
+        acc.append(calculate_acc(eval_mat))
+    std_iou = np.std(iou, ddof=1)
+    std_acc = np.std(acc, ddof=1)
+    var_iou = np.var(iou)
+    var_acc = np.var(acc)
+    data=pd.DataFrame({'iou': iou, 'acc': acc})
+    dataframe = pd.DataFrame({'std_iou': std_iou.tolist(), 'std_acc': std_acc.tolist(), 'var_iou': var_iou.tolist(),
+                              'var_acc': var_acc.tolist(), }, index=[0])
+    dataframe=pd.concat([data,dataframe])
+    dataframe.to_csv("test.csv", index=True, sep=',')
+    print(std_acc, std_iou, var_acc, var_iou)
+    print('-' * 20)
+
+
 class infer_gui():
     def __init__(self, models):
         # self.model = unet_train.load_from_checkpoint(models)
@@ -234,7 +262,10 @@ if __name__ == "__main__":
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))
     print(modelslist)
-    print(modelslist[-1])
+    picked = -1
+    print(modelslist[picked])
+    sufix = modelslist[picked].split('\\')[-1]
+    print(sufix)
     # g=infer_gui(modelslist[0])
     # image=g.forward(r'C:\Users\z00461wk\Desktop\Pressure_measure_activate tf1x\Camera_util/breast.jpg')
     # print(image.shape)
@@ -242,4 +273,5 @@ if __name__ == "__main__":
     # plt.imshow(image)
     # plt.show()
     # infer(modelslist[-1], './testdata')
-    metrics(modelslist[-1], './data/val_images','./data/val_masks')
+    # infer(modelslist[picked], './data/val_images',sufix=sufix)
+    metrics(modelslist[picked], './data/val_images', './data/val_masks')

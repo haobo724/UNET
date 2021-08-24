@@ -114,8 +114,8 @@ class UNET_S(UNET):
             skip_connection = skip_connections[idx // 2]
 
             if x.shape != skip_connection.shape:
-                x = TF.resize(x, size=skip_connection.shape[2:])
-
+                # x = TF.resize(x, size=skip_connection.shape[2:])
+                x = torch.nn.functional.interpolate(x, size=skip_connection.shape[2:])
             concat_skip = torch.cat((skip_connection, x), dim=1)
             x = self.ups[idx + 1](concat_skip)
 
