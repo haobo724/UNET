@@ -14,7 +14,7 @@ from albumentations.pytorch import ToTensorV2
 import torch.nn as nn
 import torchvision
 from pytorch_lightning.loggers import TensorBoardLogger
-from model import UNET,UNET_S
+from model import UNET, UNET_S
 from utils import (
     get_loaders,
 
@@ -45,6 +45,7 @@ def add_training_args(parent_parser):
     parser.add_argument('--data_folder', nargs='+', type=str)
     parser.add_argument("--worker", type=int, default=8)
     parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument('--mode_size', type=int, default=64)
 
     return parser
 
@@ -52,10 +53,20 @@ def add_training_args(parent_parser):
 class unet_train(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
+        try:
+            if hparams['mode_size'] == 32:
+                print('small size')
+                self.model = UNET_S(in_channels=3, out_channels=1).cuda()
 
-        # self.model = UNET(in_channels=3, out_channels=1).cuda()
-        self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-        self.weights=torch.tensor(np.array([0.3,0.7])).float()
+            elif hparams['mode_size'] == 16:
+                print('Xsmall size')
+                self.model = UNET_S(in_channels=3, out_channels=1, features=[16, 32, 64, 128]).cuda()
+            else:
+                self.model = UNET(in_channels=3, out_channels=1).cuda()
+        except:
+            self.model = UNET_S(in_channels=3, out_channels=1).cuda()
+
+        self.weights = torch.tensor(np.array([0.3, 0.7])).float()
         self.loss = nn.BCEWithLogitsLoss()
         self.train_logger = logging.getLogger(__name__)
         self.learning_rate = None
@@ -96,9 +107,11 @@ class unet_train(pl.LightningModule):
         preds = torch.sigmoid(y_hat.squeeze())
         pred = (preds > 0.6).float()
 
-        iou =torchmetrics.IoU(num_classes=2, absent_score=1, reduction='none').cuda()
-        validation_recall = torchmetrics.Recall(average='macro', mdmc_average='samplewise',multiclass=True, num_classes=2).cuda()
-        validation_precision = torchmetrics.Precision(average='macro', mdmc_average='samplewise', multiclass=True, num_classes=2).cuda()
+        iou = torchmetrics.IoU(num_classes=2, absent_score=1, reduction='none').cuda()
+        validation_recall = torchmetrics.Recall(average='macro', mdmc_average='samplewise', multiclass=True,
+                                                num_classes=2).cuda()
+        validation_precision = torchmetrics.Precision(average='macro', mdmc_average='samplewise', multiclass=True,
+                                                      num_classes=2).cuda()
         validation_ACC = torchmetrics.Accuracy().cuda()
         # pred=preds.int().unsqueeze(dim=1)
         y = y.long()
@@ -200,6 +213,7 @@ def main():
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
+            A.ColorJitter(brightness=0.3, hue=0.3, p=0.4),
             A.Rotate(limit=35, p=1.0),
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.1),
@@ -242,15 +256,21 @@ def main():
         NUM_WORKERS,
         PIN_MEMORY,
     )
+    if args.mode_size == 32:
+        name = 'S'
+    elif args.mode_size == 16:
+        name = 'XS'
+    else:
+        name = 'M'
     ckpt_callback = ModelCheckpoint(
         monitor='valid_IOU',
         save_top_k=2,
         mode='max',
-        filename='{epoch:02d}-{valid_IOU:02f}'
+        filename=f'{name}' + '{epoch:02d}-{valid_IOU:02f}'
 
     )
     logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'), name='my_model')
-    trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3,callbacks=[ckpt_callback], logger=logger)
+    trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, callbacks=[ckpt_callback], logger=logger)
     # lr_finder=trainer.tuner.lr_find(model)
     # fig=lr_finder.plot(suggest=True)
     # fig.show()
