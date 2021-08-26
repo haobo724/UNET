@@ -17,8 +17,7 @@ while True:
     new_img = my_transform(image=IMG)['image']
     cv2.imshow('new', new_img)
     cv2.waitKey()
-print(new_img.shape)
-print(new_img.shape)
+
 
 # filename = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
 # filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.jpg")))
