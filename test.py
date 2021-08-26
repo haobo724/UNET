@@ -1,23 +1,23 @@
 import cv2
 import numpy as np
-import glob,os
+import glob, os
 import tqdm
 import albumentations as A
-mask_dir =r'C:\ChangLiu\MasterThesis\TrainSet\full_13012020\Label_class_1'
-img_dir =r'C:\ChangLiu\MasterThesis\TrainSet\full_13012020\Original_img\00001.jpg'
-save_dir='./test_mask/'
-IMG=cv2.imread(img_dir)
+
+mask_dir = r'C:\ChangLiu\MasterThesis\TrainSet\full_13012020\Label_class_1'
+img_dir = r'C:\ChangLiu\MasterThesis\TrainSet\full_13012020\Original_img\00001.jpg'
+save_dir = './test_mask/'
+IMG = cv2.imread(img_dir)
 print(IMG.shape)
-my_transform=A.Compose([A.Resize(512,512),
-                        A.ColorJitter(brightness=0.5,saturation=0.3,contrast=0.5, hue=0.1, p=1),
-                        # A.ColorJitter(saturation=2,hue=0),
-                        ])
+my_transform = A.Compose([A.Resize(512, 512),
+                          A.ColorJitter(brightness=0.5, saturation=0.3, contrast=0.5, hue=0.1, p=1),
+                          # A.ColorJitter(saturation=2,hue=0),
+                          ])
 while True:
-    new_img=my_transform(image=IMG)['image']
-    cv2.imshow('new',new_img)
+    new_img = my_transform(image=IMG)['image']
+    cv2.imshow('new', new_img)
     cv2.waitKey()
 print(new_img.shape)
-
 
 # filename = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
 # filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.jpg")))
