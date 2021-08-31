@@ -186,9 +186,9 @@ def metrics(models, img_dir, mask_dir,sufix='sufix'):
     assert np.max(img_sum) == np.max(mask_sum)
     assert np.min(img_sum) == np.min(mask_sum)
     eval_mat = calculate_eval_matrix(2, mask_sum, img_sum)
-    print(calculate_IoU(eval_mat))
-    print(np.mean(calculate_IoU(eval_mat)))
-    print(calculate_acc(eval_mat))
+    print('indi IoU:',calculate_IoU(eval_mat))
+    print('IoU:',np.mean(calculate_IoU(eval_mat)))
+    print('acc:',calculate_acc(eval_mat))
     single_metric(img_sum, mask_sum,sufix=sufix)
 
 
@@ -275,22 +275,27 @@ class infer_gui():
 
 
 if __name__ == "__main__":
+    '''
+    until 31.08.2021 best model is :: .\goodmodel\epoch=71-valid_IOU=0.821612.ckpt
+    
+    
+    '''
     modelslist = []
     for root, dirs, files in os.walk(r".\goodmodel"):
         for file in files:
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))
-    print(modelslist)
-    picked = -2
-    print(modelslist[picked])
+    for idx,model in enumerate(modelslist) :
+        print(f'{idx}:',model)
+    picked = int(input('Model:'))
+    assert abs(picked) <= len(modelslist)-1
+    print('inference model : ',modelslist[picked])
     sufix = modelslist[picked].split('\\')[-1]
-    print(sufix)
     # g=infer_gui(modelslist[0])
     # image=g.forward(r'C:\Users\z00461wk\Desktop\Pressure_measure_activate tf1x\Camera_util/breast.jpg')
     # print(image.shape)
     # plt.figure()
     # plt.imshow(image)
     # plt.show()
-    # infer(modelslist[-1], './testdata')
-    infer(modelslist[picked], './data/val_images',sufix=sufix)
-    # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
+    # infer(modelslist[picked], './data/val_images',sufix=sufix)
+    metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
