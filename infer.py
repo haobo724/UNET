@@ -17,7 +17,7 @@ from albumentations.pytorch import ToTensorV2
 import PIL.Image as Image
 import torchvision
 from train import unet_train
-import matplotlib.pyplot  as plt
+import matplotlib.pyplot as plt
 from model import UNET, UNET_S
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -29,6 +29,7 @@ IMAGE_WIDTH = 484  # 1936 originally
 PIN_MEMORY = True
 LOAD_MODEL = False
 
+
 def add_training_args(parent_parser):
     parser = ArgumentParser(parents=[parent_parser], add_help=False)
     parser.add_argument('--mode_size', type=int, default=64)
@@ -37,6 +38,7 @@ def add_training_args(parent_parser):
     parser.add_argument("--batch_size", type=int, default=4)
 
     return parser
+
 
 def infer(models, raw_dir, sufix):
     if raw_dir is None or models is None:
@@ -68,7 +70,6 @@ def infer(models, raw_dir, sufix):
     infer_data2 = sorted(glob.glob(os.path.join(raw_dir, "*.jpg")))
     infer_data += infer_data2
     print(infer_data)
-    filename = os.listdir(raw_dir)
 
     folder = "saved_images_" + sufix + '//'
 
@@ -79,7 +80,6 @@ def infer(models, raw_dir, sufix):
         os.makedirs(folder)
 
     curtime = time.time()
-
 
     model = unet_train.load_from_checkpoint(models)
     with torch.no_grad():
@@ -100,7 +100,7 @@ def infer(models, raw_dir, sufix):
             x = torch.unsqueeze(x, dim=0)
             timebegin = time.time()
             # model.freeze()
-            # model.eval()
+            model.eval()
             y_hat = model(x)
             preds = torch.sigmoid(y_hat.squeeze())
             preds = (preds > 0.6).float()
@@ -108,19 +108,24 @@ def infer(models, raw_dir, sufix):
             preds = resize_xform(image=preds.cpu().numpy())
             preds = preds["image"].numpy()
             timeend = time.time()
-
+            post_pred = post_processing(preds)
+            post_pred = np.expand_dims(post_pred, axis=0)
             preds = np.vstack((preds, preds, preds))
             preds = np.expand_dims(preds, axis=0)
+
+            post_pred = np.vstack((post_pred, post_pred, post_pred))
+            post_pred = np.expand_dims(post_pred, axis=0)
 
             input_copy = infer_xform2(image=input_copy)["image"]
             input_copy = np.transpose(input_copy, (2, 0, 1))
             input_copy = np.expand_dims(input_copy, axis=0)
 
-            saved = np.vstack((preds, input_copy))
+            saved = np.vstack((input_copy, preds, post_pred))
             saved = torch.tensor(saved)
-
+            filename = infer_data[index].split('.')[-2] + '.jpg'
+            print(filename)
             torchvision.utils.save_image(
-                saved, f"{folder}/infer_{filename[index]}"
+                saved, f"{folder}/infer_{filename}"
             )
             print(f'At {index} image used:{timeend - timebegin} s')
 
@@ -128,7 +133,7 @@ def infer(models, raw_dir, sufix):
     print(f'Totally used:{end - curtime} s')
 
 
-def metrics(models, img_dir, mask_dir,sufix='sufix'):
+def metrics(models, img_dir, mask_dir, sufix='sufix'):
     if img_dir is None or models is None:
         ValueError('raw_dir or model is missing')
     filename = sorted(glob.glob(os.path.join(mask_dir, "*.jpg")))
@@ -142,7 +147,6 @@ def metrics(models, img_dir, mask_dir,sufix='sufix'):
     # test=torch.load(models)
     # mode_size=test['state_dict']['model.ups.0.weight'].size()[0]/16
     # models['hyper_parameters'][0].update({"mode_size": int(mode_size)})
-
 
     model = unet_train.load_from_checkpoint(models)
     infer_xform = A.Compose(
@@ -186,14 +190,31 @@ def metrics(models, img_dir, mask_dir,sufix='sufix'):
     assert np.max(img_sum) == np.max(mask_sum)
     assert np.min(img_sum) == np.min(mask_sum)
     eval_mat = calculate_eval_matrix(2, mask_sum, img_sum)
-    print('indi IoU:',calculate_IoU(eval_mat))
-    print('IoU:',np.mean(calculate_IoU(eval_mat)))
-    print('acc:',calculate_acc(eval_mat))
-    single_metric(img_sum, mask_sum,sufix=sufix)
+    print('indi IoU:', calculate_IoU(eval_mat))
+    print('IoU:', np.mean(calculate_IoU(eval_mat)))
+    print('acc:', calculate_acc(eval_mat))
+    single_metric(img_sum, mask_sum, sufix=sufix)
 
 
-def single_metric(preds, masks,sufix):
-    sufix=sufix[:-5]
+def post_processing(image):
+    image = np.squeeze(image)
+    contours, hierarchy = cv2.findContours(image.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    if len(contours) == 0:
+        print('No breast')
+        return image
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)[0]
+    temp = np.zeros_like(image)
+
+    thresh = cv2.fillPoly(temp, [contours], (255, 255, 255))
+    # plt.figure()
+    # plt.imshow(thresh * 255, cmap='gray')
+    #
+    # plt.show()
+    return thresh
+
+
+def single_metric(preds, masks, sufix):
+    sufix = sufix[:-5]
     iou, acc = [], []
     for pred, mask in zip(preds, masks):
         eval_mat = calculate_eval_matrix(2, mask, pred)
@@ -204,20 +225,20 @@ def single_metric(preds, masks,sufix):
     std_acc = np.std(acc, ddof=1)
     var_iou = np.var(iou)
     var_acc = np.var(acc)
-    data=pd.DataFrame({'iou': iou, 'acc': acc})
+    data = pd.DataFrame({'iou': iou, 'acc': acc})
     dataframe = pd.DataFrame({'std_iou': std_iou.tolist(), 'std_acc': std_acc.tolist(), 'var_iou': var_iou.tolist(),
                               'var_acc': var_acc.tolist(), }, index=[0])
-    dataframe=pd.concat([data,dataframe])
+    dataframe = pd.concat([data, dataframe])
     dataframe.to_csv(f"{sufix}.csv", index=True, sep=',')
     print(std_acc, std_iou, var_acc, var_iou)
     print('-' * 20)
 
 
 class infer_gui():
-    def __init__(self, models,size=[64, 128, 256, 512]):
+    def __init__(self, models, size=[64, 128, 256, 512]):
         # self.model = unet_train.load_from_checkpoint(models)
         self.model_CKPT = torch.load(models)
-        self.model = UNET(in_channels=3, out_channels=1,features=size).half().cuda()
+        self.model = UNET(in_channels=3, out_channels=1, features=size).half().cuda()
         # self.model = UNET_S(in_channels=3, out_channels=1).half().cuda()
 
         loaded_dict = self.model_CKPT['state_dict']
@@ -285,11 +306,11 @@ if __name__ == "__main__":
         for file in files:
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))
-    for idx,model in enumerate(modelslist) :
-        print(f'{idx}:',model)
+    for idx, model in enumerate(modelslist):
+        print(f'{idx}:', model)
     picked = int(input('Model:'))
-    assert abs(picked) <= len(modelslist)-1
-    print('inference model : ',modelslist[picked])
+    assert abs(picked) <= len(modelslist) - 1
+    print('inference model : ', modelslist[picked])
     sufix = modelslist[picked].split('\\')[-1]
     # g=infer_gui(modelslist[0])
     # image=g.forward(r'C:\Users\z00461wk\Desktop\Pressure_measure_activate tf1x\Camera_util/breast.jpg')
@@ -298,4 +319,6 @@ if __name__ == "__main__":
     # plt.imshow(image)
     # plt.show()
     # infer(modelslist[picked], './data/val_images',sufix=sufix)
-    metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
+    # infer(modelslist[picked], './testdata',sufix=sufix)
+    infer(modelslist[picked], r'F:\semantic_segmentation_unet\Cam62-71\20181215-06.00', sufix=sufix)
+    # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
