@@ -182,6 +182,7 @@ def metrics(models, img_dir, mask_dir, sufix='sufix'):
 
         preds = resize_xform(image=preds.cpu().numpy())
         preds = preds["image"].numpy() * 1
+        # preds = post_processing(preds)/255
         preds = preds.squeeze()
         img_sum.append(preds)
     print(time.time() - curtime)
@@ -319,6 +320,6 @@ if __name__ == "__main__":
     # plt.imshow(image)
     # plt.show()
     # infer(modelslist[picked], './data/val_images',sufix=sufix)
-    infer(modelslist[picked], './testdata',sufix=sufix)
+    # infer(modelslist[picked], './testdata',sufix=sufix)
     # infer(modelslist[picked], r'F:\semantic_segmentation_unet\Cam62-71\20181215-06.00', sufix=sufix)
-    # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
+    metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)

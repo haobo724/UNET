@@ -27,12 +27,16 @@ pyplot.title("FWIoU [%]", fontsize=10)             #设置子图标题
 pyplot.hist(iou)
 pyplot.ylim(0,14)
 pyplot.xlim(70, 100)
+pyplot.xlabel('FWIoU')
+pyplot.ylabel('Amount of frames ')
 pyplot.grid()
 pyplot.subplot(122)
 pyplot.title("Pixel Accuracy [%]", fontsize=10)             #设置子图标题
 pyplot.hist(acc)
 pyplot.ylim(0,14)
 pyplot.xlim(70, 100)
+pyplot.xlabel('Pixel Accuracy')
+
 pyplot.grid()
 pyplot.yticks([0,2,4,6,8,10,12,14], [])
 
