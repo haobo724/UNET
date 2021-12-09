@@ -14,7 +14,7 @@ from albumentations.pytorch import ToTensorV2
 import torch.nn as nn
 import torchvision
 from pytorch_lightning.loggers import TensorBoardLogger
-from model import UNET, UNET_S
+from model import UNET, UNET_S,UNet_PP
 from utils import (
     get_loaders,
 
@@ -30,13 +30,15 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 2
 NUM_EPOCHS = 50
 NUM_WORKERS = 8
-IMAGE_HEIGHT = 274  # 1096 originally  0.25
-IMAGE_WIDTH = 484  # 1936 originally
+# IMAGE_HEIGHT = 274  # 1096 originally  0.25
+# IMAGE_WIDTH = 484  # 1936 originally
+IMAGE_HEIGHT = 480  # 1096 originally  0.25
+IMAGE_WIDTH = 640  # 1936 originally
 PIN_MEMORY = True
-TRAIN_IMG_DIR = "data/train_images/"
-TRAIN_MASK_DIR = "data/train_masks/"
-VAL_IMG_DIR = "data/val_images/"
-VAL_MASK_DIR = "data/val_masks/"
+TRAIN_IMG_DIR = "data2/train_images/"
+TRAIN_MASK_DIR = "data2/train_masks/"
+VAL_IMG_DIR = "data2/val_images/"
+VAL_MASK_DIR = "data2/val_masks/"
 
 
 def add_training_args(parent_parser):
@@ -53,19 +55,19 @@ def add_training_args(parent_parser):
 class unet_train(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
-        try:
-            if hparams['mode_size'] == 32:
-                print('small size')
-                self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-
-            elif hparams['mode_size'] == 16:
-                print('Xsmall size')
-                self.model = UNET_S(in_channels=3, out_channels=1, features=[16, 32, 64, 128]).cuda()
-            else:
-                self.model = UNET(in_channels=3, out_channels=1).cuda()
-        except:
-            self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-
+        # try:
+        #     if hparams['mode_size'] == 32:
+        #         print('small size')
+        #         self.model = UNET_S(in_channels=3, out_channels=1).cuda()
+        #
+        #     elif hparams['mode_size'] == 16:
+        #         print('Xsmall size')
+        #         self.model = UNET_S(in_channels=3, out_channels=1, features=[16, 32, 64, 128]).cuda()
+        #     else:
+        #         self.model = UNET(in_channels=3, out_channels=1).cuda()
+        # except:
+        #     self.model = UNET_S(in_channels=3, out_channels=1).cuda()
+        self.model =  UNet_PP(num_classes=1, input_channels=3).cuda()
         self.weights = torch.tensor(np.array([0.3, 0.7])).float()
         self.loss = nn.BCEWithLogitsLoss()
         self.train_logger = logging.getLogger(__name__)
@@ -215,8 +217,8 @@ def main():
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.ColorJitter(brightness=0.3, hue=0.3, p=0.4),
             A.Rotate(limit=35, p=1.0),
-            A.HorizontalFlip(p=0.5),
-            A.VerticalFlip(p=0.1),
+            A.HorizontalFlip(p=0.3),
+            A.VerticalFlip(p=0.2),
             A.Normalize(
                 mean=[0.0, 0.0, 0.0],
                 std=[1.0, 1.0, 1.0],
