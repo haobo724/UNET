@@ -29,16 +29,16 @@ import PIL.Image as Image
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 2
 NUM_EPOCHS = 50
-NUM_WORKERS = 8
+NUM_WORKERS = 4
 # IMAGE_HEIGHT = 274  # 1096 originally  0.25
 # IMAGE_WIDTH = 484  # 1936 originally
 IMAGE_HEIGHT = 480  # 1096 originally  0.25
 IMAGE_WIDTH = 640  # 1936 originally
 PIN_MEMORY = True
-TRAIN_IMG_DIR = "data2/train_images/"
-TRAIN_MASK_DIR = "data2/train_masks/"
-VAL_IMG_DIR = "data2/val_images/"
-VAL_MASK_DIR = "data2/val_masks/"
+TRAIN_IMG_DIR = "data/train_images/"
+TRAIN_MASK_DIR = "data/train_masks/"
+VAL_IMG_DIR = "data/val_images/"
+VAL_MASK_DIR = "data/val_masks/"
 
 
 def add_training_args(parent_parser):
@@ -68,7 +68,7 @@ class unet_train(pl.LightningModule):
         # except:
         #     self.model = UNET_S(in_channels=3, out_channels=1).cuda()
         self.model =  UNet_PP(num_classes=1, input_channels=3).cuda()
-        self.weights = torch.tensor(np.array([0.3, 0.7])).float()
+        self.weights = torch.tensor(np.array([0.5, 0.5])).float()
         self.loss = nn.BCEWithLogitsLoss()
         self.train_logger = logging.getLogger(__name__)
         self.learning_rate = None
