@@ -94,13 +94,13 @@ def infer(models, raw_dir, sufix):
                     ToTensorV2(),
                 ],
             )
+            input=cv2.rotate(input,cv2.ROTATE_180)
             input = infer_xform(image=input)
             x = input["image"].cuda()
 
             x = torch.unsqueeze(x, dim=0)
             timebegin = time.time()
             # model.freeze()
-            model.eval()
             y_hat = model(x)
             preds = torch.sigmoid(y_hat.squeeze())
             preds = (preds > 0.6).float()
@@ -319,7 +319,7 @@ if __name__ == "__main__":
     # plt.figure()
     # plt.imshow(image)
     # plt.show()
-    infer(modelslist[picked], './data/val_images',sufix=sufix)
+    infer(modelslist[picked], r'C:\Users\z00461wk\Desktop\Pressure_measure_activate_tf1x\Camera_util\1217_phantom',sufix=sufix)
     # infer(modelslist[picked], './testdata',sufix=sufix)
     # infer(modelslist[picked], r'F:\semantic_segmentation_unet\Cam62-71\20181215-06.00', sufix=sufix)
     # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)

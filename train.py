@@ -55,19 +55,19 @@ def add_training_args(parent_parser):
 class unet_train(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
-        # try:
-        #     if hparams['mode_size'] == 32:
-        #         print('small size')
-        #         self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-        #
-        #     elif hparams['mode_size'] == 16:
-        #         print('Xsmall size')
-        #         self.model = UNET_S(in_channels=3, out_channels=1, features=[16, 32, 64, 128]).cuda()
-        #     else:
-        #         self.model = UNET(in_channels=3, out_channels=1).cuda()
-        # except:
-        #     self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-        self.model =  UNet_PP(num_classes=1, input_channels=3).cuda()
+        try:
+            if hparams['mode_size'] == 32:
+                print('small size')
+                self.model = UNET_S(in_channels=3, out_channels=1).cuda()
+
+            elif hparams['mode_size'] == 16:
+                print('Xsmall size')
+                self.model = UNET_S(in_channels=3, out_channels=1, features=[16, 32, 64, 128]).cuda()
+            else:
+                self.model = UNET(in_channels=3, out_channels=1).cuda()
+        except:
+            self.model = UNET_S(in_channels=3, out_channels=1).cuda()
+        # self.model =  UNet_PP(num_classes=1, input_channels=3).cuda()
         self.weights = torch.tensor(np.array([0.5, 0.5])).float()
         self.loss = nn.BCEWithLogitsLoss()
         self.train_logger = logging.getLogger(__name__)
