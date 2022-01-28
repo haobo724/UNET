@@ -144,9 +144,7 @@ def metrics(models, img_dir, mask_dir, sufix='sufix'):
         mask_img = cv2.imread(mask, 0) / 255
         mask_sum.append(mask_img)
     mask_sum = np.array(mask_sum)
-    # test=torch.load(models)
-    # mode_size=test['state_dict']['model.ups.0.weight'].size()[0]/16
-    # models['hyper_parameters'][0].update({"mode_size": int(mode_size)})
+
 
     model = unet_train.load_from_checkpoint(models)
     infer_xform = A.Compose(
@@ -182,6 +180,7 @@ def metrics(models, img_dir, mask_dir, sufix='sufix'):
 
         preds = resize_xform(image=preds.cpu().numpy())
         preds = preds["image"].numpy() * 1
+
         preds = post_processing(preds)/255
         preds = preds.squeeze()
         img_sum.append(preds)
@@ -319,7 +318,7 @@ if __name__ == "__main__":
     # plt.figure()
     # plt.imshow(image)
     # plt.show()
-    infer(modelslist[picked], './data/val_images',sufix=sufix)
+    # infer(modelslist[picked], './data/val_images',sufix=sufix)
     # infer(modelslist[picked], './testdata',sufix=sufix)
     # infer(modelslist[picked], r'F:\semantic_segmentation_unet\Cam62-71\20181215-06.00', sufix=sufix)
-    # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
+    metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
