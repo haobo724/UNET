@@ -1,9 +1,6 @@
 import os
 
 import numpy as np
-
-import glob
-
 import torchmetrics
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
@@ -14,7 +11,7 @@ from albumentations.pytorch import ToTensorV2
 import torch.nn as nn
 import torchvision
 from pytorch_lightning.loggers import TensorBoardLogger
-from model import UNET, UNET_S,UNet_PP
+from model import UNET, UNET_S
 from utils import (
     get_loaders,
 
@@ -23,7 +20,6 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from argparse import ArgumentParser
-import PIL.Image as Image
 
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -257,6 +253,7 @@ def main():
         val_transforms,
         NUM_WORKERS,
         PIN_MEMORY,
+        seed=1232
     )
     if args.mode_size == 32:
         name = 'S'

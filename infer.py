@@ -1,14 +1,14 @@
+import glob
 import os
 import shutil
 import time
+from argparse import ArgumentParser
 
 import cv2
 import numpy as np
 import pandas as pd
-import glob
+
 from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
-from argparse import ArgumentParser
-import pytorch_lightning as pl
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
@@ -17,8 +17,7 @@ from albumentations.pytorch import ToTensorV2
 import PIL.Image as Image
 import torchvision
 from train import unet_train
-import matplotlib.pyplot as plt
-from model import UNET, UNET_S
+from model import UNET
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 4

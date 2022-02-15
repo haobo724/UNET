@@ -1,5 +1,6 @@
-from matplotlib import pyplot
 import csv
+
+from matplotlib import pyplot
 
 data = r'.\pre-epoch=71-valid_IOU=0.821612.csv'
 data_post = r'.\epoch=71-valid_IOU=0.821612.csv'

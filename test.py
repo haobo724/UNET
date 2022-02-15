@@ -1,10 +1,9 @@
-import cv2
-import numpy as np
-import glob, os
-import tqdm
-import albumentations as A
+import os
 from sklearn import model_selection
-import glob
+import os
+
+from sklearn import model_selection
+
 mask_dir = r'C:\ChangLiu\MasterThesis\TrainSet\full_13012020\Label_class_1'
 img_dir = r'C:\Users\z00461wk\Desktop\haobo\semantic_segmentation_unet\data\train_images'
 save_dir = './test_mask/'

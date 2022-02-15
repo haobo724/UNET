@@ -1,27 +1,17 @@
 import os
 
-import numpy as np
-
-import glob
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
-import logging
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-import torch.nn as nn
-import torchvision
 
-from model import UNET
 from utils import (
-    get_loaders,
     get_testloaders
 
 )
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from train import unet_train
-from argparse import ArgumentParser
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 2
