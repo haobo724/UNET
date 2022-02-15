@@ -35,10 +35,10 @@ NUM_WORKERS = 4
 IMAGE_HEIGHT = 480  # 1096 originally  0.25
 IMAGE_WIDTH = 640  # 1936 originally
 PIN_MEMORY = True
-TRAIN_IMG_DIR = "data/train_images/"
-TRAIN_MASK_DIR = "data/train_masks/"
-VAL_IMG_DIR = "data/val_images/"
-VAL_MASK_DIR = "data/val_masks/"
+TRAIN_IMG_DIR = "data/all_images/"
+TRAIN_MASK_DIR = "data/all_masks/"
+VAL_IMG_DIR = "data/all_images/"
+VAL_MASK_DIR = "data/all_masks/"
 
 
 def add_training_args(parent_parser):
@@ -55,19 +55,19 @@ def add_training_args(parent_parser):
 class unet_train(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
-        # try:
-        #     if hparams['mode_size'] == 32:
-        #         print('small size')
-        #         self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-        #
-        #     elif hparams['mode_size'] == 16:
-        #         print('Xsmall size')
-        #         self.model = UNET_S(in_channels=3, out_channels=1, features=[16, 32, 64, 128]).cuda()
-        #     else:
-        #         self.model = UNET(in_channels=3, out_channels=1).cuda()
-        # except:
-        #     self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-        self.model =  UNet_PP(num_classes=1, input_channels=3).cuda()
+        try:
+            if hparams['mode_size'] == 32:
+                print('small size')
+                self.model = UNET_S(in_channels=3, out_channels=1).cuda()
+
+            elif hparams['mode_size'] == 16:
+                print('Xsmall size')
+                self.model = UNET_S(in_channels=3, out_channels=1, features=[16, 32, 64, 128]).cuda()
+            else:
+                self.model = UNET(in_channels=3, out_channels=1).cuda()
+        except:
+            self.model = UNET_S(in_channels=3, out_channels=1).cuda()
+        # self.model =  UNet_PP(num_classes=1, input_channels=3).cuda()
         self.weights = torch.tensor(np.array([0.5, 0.5])).float()
         self.loss = nn.BCEWithLogitsLoss()
         self.train_logger = logging.getLogger(__name__)
@@ -273,12 +273,7 @@ def main():
     )
     logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'), name='my_model')
     trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, callbacks=[ckpt_callback], logger=logger)
-    # lr_finder=trainer.tuner.lr_find(model)
-    # fig=lr_finder.plot(suggest=True)
-    # fig.show()
-    # model.hparams.learning_rate=lr_finder.suggestion()
-    # if not os.path.exists(os.path.join('.', 'lightning_logs')):
-    #     os.makedirs(os.path.join('.', 'lightning_logs'))
+
 
     logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
 

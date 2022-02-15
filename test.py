@@ -3,20 +3,38 @@ import numpy as np
 import glob, os
 import tqdm
 import albumentations as A
-
+from sklearn import model_selection
+import glob
 mask_dir = r'C:\ChangLiu\MasterThesis\TrainSet\full_13012020\Label_class_1'
-img_dir = r'C:\ChangLiu\MasterThesis\TrainSet\full_13012020\Original_img\00001.jpg'
+img_dir = r'C:\Users\z00461wk\Desktop\haobo\semantic_segmentation_unet\data\train_images'
 save_dir = './test_mask/'
-IMG = cv2.imread(img_dir)
-print(IMG.shape)
-my_transform = A.Compose([A.Resize(512, 512),
-                          A.ColorJitter(brightness=0.5, saturation=0.3, contrast=0.5, hue=0.1, p=1),
-                          # A.ColorJitter(saturation=2,hue=0),
-                          ])
-while True:
-    new_img = my_transform(image=IMG)['image']
-    cv2.imshow('new', new_img)
-    cv2.waitKey()
+
+X = glob.glob('./data/all_images/*.jpg')
+y = glob.glob('./data/all_masks/*.jpg')
+
+X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size = 0.25, random_state = 1234)
+img_name=[]
+for i in X_train:
+    i = os.path.split(i)[-1]
+    img_name.append(i)
+
+# img = os.listdir(img_dir)
+# for i in img:
+#     im = cv2.imread(os.path.join(img_dir,i))
+#     mean1=np.mean(im[...,:0])
+#     mean2=np.mean(im[...,:1])
+#     mean3=np.mean(im[...,:2])
+# print(mean1)
+# IMG = cv2.imread(img_dir)
+# print(IMG.shape)
+# my_transform = A.Compose([A.Resize(512, 512),
+#                           A.ColorJitter(brightness=0.5, saturation=0.3, contrast=0.5, hue=0.1, p=1),
+#                           # A.ColorJitter(saturation=2,hue=0),
+#                           ])
+# while True:
+#     new_img = my_transform(image=IMG)['image']
+#     cv2.imshow('new', new_img)
+#     cv2.waitKey()
 
 
 # filename = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
