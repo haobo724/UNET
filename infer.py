@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
+from sklearn import model_selection
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
@@ -68,7 +69,6 @@ def infer(models, raw_dir, sufix):
     infer_data = sorted(glob.glob(os.path.join(raw_dir, "*.PNG")))
     infer_data2 = sorted(glob.glob(os.path.join(raw_dir, "*.jpg")))
     infer_data += infer_data2
-    print(infer_data)
 
     folder = "saved_images_" + sufix + '//'
 
@@ -132,14 +132,20 @@ def infer(models, raw_dir, sufix):
     print(f'Totally used:{end - curtime} s')
 
 
-def metrics(models, img_dir, mask_dir, sufix='sufix'):
+def metrics(models, img_dir, sufix='sufix',post=True ):
     if img_dir is None or models is None:
         ValueError('raw_dir or model is missing')
-    filename = sorted(glob.glob(os.path.join(mask_dir, "*.jpg")))
-    filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
+    # filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.jpg")))
+    # filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
+    X = glob.glob('./data/all_images/*.jpg')
+    y = glob.glob('./data/all_masks/*.jpg')
+    seed = models.split('_')[-1][:4]
+    print('seed:', seed)
+    _, filename_img, _, filename_mask = model_selection.train_test_split(X, y, test_size=0.25, random_state=int(seed))
+
     mask_sum = []
     img_sum = []
-    for mask in filename:
+    for mask in filename_mask:
         mask_img = cv2.imread(mask, 0) / 255
         mask_sum.append(mask_img)
     mask_sum = np.array(mask_sum)
@@ -159,41 +165,40 @@ def metrics(models, img_dir, mask_dir, sufix='sufix'):
             ToTensorV2(),
         ],
     )
-    curtime = time.time()
+    with torch.no_grad():
+        for index in range(len(filename_img)):
+            input = np.array(Image.open(filename_img[index]), dtype=np.uint8)
+            resize_xform = A.Compose(
+                [
+                    A.Resize(height=input.shape[0], width=input.shape[1]),
 
-    for index in range(len(filename_img)):
-        input = np.array(Image.open(filename_img[index]), dtype=np.uint8)
-        resize_xform = A.Compose(
-            [
-                A.Resize(height=input.shape[0], width=input.shape[1]),
+                    ToTensorV2(),
+                ],
+            )
+            input = infer_xform(image=input)
+            x = input["image"].cuda()
 
-                ToTensorV2(),
-            ],
-        )
-        input = infer_xform(image=input)
-        x = input["image"].cuda()
+            x = torch.unsqueeze(x, dim=0)
+            model.eval()
+            y_hat = model(x)
+            preds = torch.sigmoid(y_hat.squeeze())
+            preds = (preds > 0.6).float()
 
-        x = torch.unsqueeze(x, dim=0)
-        model.eval()
-        y_hat = model(x)
-        preds = torch.sigmoid(y_hat.squeeze())
-        preds = (preds > 0.6).float()
-
-        preds = resize_xform(image=preds.cpu().numpy())
-        preds = preds["image"].numpy() * 1
-        preds = post_processing(preds)/255
-        preds = preds.squeeze()
-        img_sum.append(preds)
-    print(time.time() - curtime)
+            preds = resize_xform(image=preds.cpu().numpy())
+            preds = preds["image"].numpy() * 1
+            if post:
+                preds = post_processing(preds) / 255
+            preds = preds.squeeze()
+            img_sum.append(preds)
     img_sum = np.array(img_sum)
-    print(img_sum.shape)
     assert np.max(img_sum) == np.max(mask_sum)
     assert np.min(img_sum) == np.min(mask_sum)
     eval_mat = calculate_eval_matrix(2, mask_sum, img_sum)
     print('indi IoU:', calculate_IoU(eval_mat))
     print('IoU:', np.mean(calculate_IoU(eval_mat)))
     print('acc:', calculate_acc(eval_mat))
-    single_metric(img_sum, mask_sum, sufix=sufix)
+    std_acc, std_iou, var_acc, var_iou = single_metric(img_sum, mask_sum, sufix=sufix,post=post)
+    return np.mean(calculate_IoU(eval_mat)), calculate_acc(eval_mat),std_acc, std_iou, var_acc, var_iou
 
 
 def post_processing(image):
@@ -213,8 +218,13 @@ def post_processing(image):
     return thresh
 
 
-def single_metric(preds, masks, sufix):
+def single_metric(preds, masks, sufix,post=True):
     sufix = sufix[:-5]
+    if post:
+        sufix = 'post'+sufix
+    else:
+        sufix = 'no-post'+sufix
+
     iou, acc = [], []
     for pred, mask in zip(preds, masks):
         eval_mat = calculate_eval_matrix(2, mask, pred)
@@ -232,7 +242,7 @@ def single_metric(preds, masks, sufix):
     dataframe.to_csv(f"{sufix}.csv", index=True, sep=',')
     print(std_acc, std_iou, var_acc, var_iou)
     print('-' * 20)
-
+    return std_acc, std_iou, var_acc, var_iou
 
 class infer_gui():
     def __init__(self, models, size=[64, 128, 256, 512]):
@@ -302,7 +312,7 @@ if __name__ == "__main__":
     
     '''
     modelslist = []
-    for root, dirs, files in os.walk(r".\goodmodel"):
+    for root, dirs, files in os.walk(r".\model_corss"):
         for file in files:
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))
@@ -311,14 +321,35 @@ if __name__ == "__main__":
     picked = int(input('Model:'))
     assert abs(picked) <= len(modelslist) - 1
     print('inference model : ', modelslist[picked])
-    sufix = modelslist[picked].split('\\')[-1]
     # g=infer_gui(modelslist[0])
     # image=g.forward(r'C:\Users\z00461wk\Desktop\Pressure_measure_activate tf1x\Camera_util/breast.jpg')
     # print(image.shape)
     # plt.figure()
     # plt.imshow(image)
     # plt.show()
-    infer(modelslist[picked], './data/val_images',sufix=sufix)
+    # infer(modelslist[picked], './data/val_images',sufix=sufix)
     # infer(modelslist[picked], './testdata',sufix=sufix)
     # infer(modelslist[picked], r'F:\semantic_segmentation_unet\Cam62-71\20181215-06.00', sufix=sufix)
-    # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
+    iou = []
+    acc = []
+    std_accs = []
+    std_ious = []
+    var_accs = []
+    var_ious = []
+    for i in range(5):
+        # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
+        sufix = modelslist[i].split('\\')[-1]
+
+        i ,a,std_acc, std_iou, var_acc, var_iou =metrics(modelslist[i], './data/val_images',  sufix=sufix,post=False)
+        iou.append(i)
+        acc.append(a)
+        std_accs.append(std_acc)
+        std_ious.append(std_iou)
+        var_accs.append(var_acc)
+        var_ious.append(var_iou)
+    print(np.array(iou).mean())
+    print(np.array(acc).mean())
+    print(np.array(std_accs).mean())
+    print(np.array(std_ious).mean())
+    print(np.array(var_accs).mean())
+    print(np.array(var_ious).mean())

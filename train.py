@@ -91,10 +91,11 @@ class unet_train(pl.LightningModule):
 
         loss = self.loss.forward(y_hat, y.unsqueeze(dim=1))
 
-        self.log("loss", loss, on_step=True)
+        self.log("loss", loss)
         return {"loss": loss}
 
     def validation_step(self, batch, batch_idx, dataset_idx=None):
+        print('============start validation==============')
         folder = "saved_images/"
         x, y = batch
         y_hat = self(x)
@@ -119,9 +120,9 @@ class unet_train(pl.LightningModule):
         acc = validation_ACC(pred.unsqueeze(1), y.unsqueeze(1))
 
         self.log("IOU:", RS_IOU[1], prog_bar=True)
-        self.log("RS_recall:", RS_recall, prog_bar=True)
-        self.log("RS_precision:", RS_precision, prog_bar=True)
-        self.log("acc:", acc, prog_bar=True)
+        # self.log("RS_recall:", RS_recall, prog_bar=True)
+        # self.log("RS_precision:", RS_precision, prog_bar=True)
+        # self.log("acc:", acc, prog_bar=True)
 
         torchvision.utils.save_image(
             pred.unsqueeze(dim=1).cpu(), f"{folder}/pred_{batch_idx}.png"
@@ -166,7 +167,6 @@ class unet_train(pl.LightningModule):
     def training_epoch_end(self, outputs):
 
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
-        # self.train_logger.info("Training epoch {} ends".format(self.current_epoch))
         self.log('train/loss', avg_loss)
 
     def validation_epoch_end(self, outputs):
@@ -177,6 +177,7 @@ class unet_train(pl.LightningModule):
         self.log('valid/loss', avg_loss, logger=True)
         self.log('valid_IOU', avg_iou, logger=True)
         self.log('valid_ACC', avg_acc, logger=True)
+        print('============end validation==============')
 
     # def test_step_end(self, outputs):
     #     # for x in outputs:
@@ -212,7 +213,7 @@ def main():
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.ColorJitter(brightness=0.3, hue=0.3, p=0.4),
-            A.Rotate(limit=35, p=1.0),
+            A.Rotate(limit=5, p=1.0),
             A.HorizontalFlip(p=0.3),
             A.VerticalFlip(p=0.2),
             A.Normalize(
@@ -253,7 +254,7 @@ def main():
         val_transforms,
         NUM_WORKERS,
         PIN_MEMORY,
-        seed=1232
+        seed=8888
     )
     if args.mode_size == 32:
         name = 'S'
@@ -268,15 +269,12 @@ def main():
         filename=f'{name}' + '{epoch:02d}-{valid_IOU:02f}'
 
     )
-    logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'), name='my_model')
+    logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'))
     trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, callbacks=[ckpt_callback], logger=logger)
 
 
     logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
 
-    # make the direcrory for the checkpoints
-    if not os.path.exists(os.path.join('.', 'lightning_logs', f'version_{trainer.logger.version}')):
-        os.makedirs(os.path.join('.', 'lightning_logs', f'version_{trainer.logger.version}'))
 
     trainer.fit(model, train_loader, val_loader)
     # trainer.save_checkpoint(
