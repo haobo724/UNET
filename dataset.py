@@ -19,7 +19,7 @@ class CarvanaDataset(Dataset):
         X = glob.glob('./data/all_images/*.jpg')
         y = glob.glob('./data/all_masks/*.jpg')
 
-        X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.25, random_state=seed)
+        X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.2, random_state=seed)
         if val:
             for i,j in zip(X_test,y_test):
                 i = os.path.split(i)[-1]
