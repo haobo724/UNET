@@ -1,5 +1,9 @@
+import os
+
 import torch
 import torchvision
+from setuptools import glob
+from sklearn import model_selection
 from torch.utils.data import DataLoader
 
 from dataset import CarvanaDataset
@@ -27,12 +31,31 @@ def get_loaders(
         pin_memory=True,
         seed=1234
 ):
+    X = glob.glob('./data/all_images/*.jpg')
+    y = glob.glob('./data/all_masks/*.jpg')
+    X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.2, random_state=seed)
+    train_img =[]
+    train_mask =[]
+    val_img =[]
+    val_mask =[]
+
+    for i, j in zip(X_test, y_test):
+        i = os.path.split(i)[-1]
+        j = os.path.split(j)[-1]
+        val_img.append(i)
+        val_mask.append(j)
+    for i, j in zip(X_train, y_train):
+        i = os.path.split(i)[-1]
+        j = os.path.split(j)[-1]
+        train_img.append(i)
+        train_mask.append(j)
     train_ds = CarvanaDataset(
         image_dir=train_dir,
         mask_dir=train_maskdir,
         transform=train_transform,
-        val=False,
-        seed=seed
+        imgs=train_img,
+        masks=        train_mask
+
     )
     train_loader = DataLoader(
         train_ds,
@@ -46,8 +69,8 @@ def get_loaders(
         image_dir=val_dir,
         mask_dir=val_maskdir,
         transform=val_transform,
-        val=True,
-        seed=seed
+        imgs=val_img,
+        masks=val_mask
 
     )
 

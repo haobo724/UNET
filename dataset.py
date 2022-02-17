@@ -8,30 +8,17 @@ from torch.utils.data import Dataset
 
 
 class CarvanaDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, transform=None,val=False,seed=1234):
+    def __init__(self, image_dir, mask_dir,imgs,masks , transform=None):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.transform = transform
         # self.images = os.listdir(image_dir)
         # self.masks = os.listdir(mask_dir)
-        self.images = []
-        self.masks = []
-        X = glob.glob('./data/all_images/*.jpg')
-        y = glob.glob('./data/all_masks/*.jpg')
+        self.images = imgs
+        self.masks = masks
 
-        X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.2, random_state=seed)
-        if val:
-            for i,j in zip(X_test,y_test):
-                i = os.path.split(i)[-1]
-                j = os.path.split(j)[-1]
-                self.images.append(i)
-                self.masks.append(j)
-        else:
-            for i,j in zip(X_train,y_train):
-                i = os.path.split(i)[-1]
-                j = os.path.split(j)[-1]
-                self.images .append(i)
-                self.masks .append(j)
+
+
         print(len(self.images))
         print(self.images)
 

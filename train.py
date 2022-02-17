@@ -23,13 +23,10 @@ from argparse import ArgumentParser
 
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 2
-NUM_EPOCHS = 50
-NUM_WORKERS = 4
-# IMAGE_HEIGHT = 274  # 1096 originally  0.25
-# IMAGE_WIDTH = 484  # 1936 originally
-IMAGE_HEIGHT = 480  # 1096 originally  0.25
-IMAGE_WIDTH = 640  # 1936 originally
+IMAGE_HEIGHT = 274  # 1096 originally  0.25
+IMAGE_WIDTH = 484  # 1936 originally
+# IMAGE_HEIGHT = 480  # 1096 originally  0.25
+# IMAGE_WIDTH = 640  # 1936 originally
 PIN_MEMORY = True
 TRAIN_IMG_DIR = "data/all_images/"
 TRAIN_MASK_DIR = "data/all_masks/"
@@ -249,10 +246,10 @@ def main():
         TRAIN_MASK_DIR,
         VAL_IMG_DIR,
         VAL_MASK_DIR,
-        BATCH_SIZE,
+        args.batch_size,
         train_transform,
         val_transforms,
-        NUM_WORKERS,
+        args.worker,
         PIN_MEMORY,
         seed=8888
     )
