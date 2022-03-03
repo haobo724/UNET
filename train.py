@@ -251,7 +251,7 @@ def main():
         val_transforms,
         args.worker,
         PIN_MEMORY,
-        seed=8888
+        seed=1111
     )
     if args.mode_size == 32:
         name = 'S'

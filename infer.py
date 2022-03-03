@@ -132,16 +132,16 @@ def infer(models, raw_dir, sufix):
     print(f'Totally used:{end - curtime} s')
 
 
-def metrics(models, img_dir, sufix='sufix',post=True ):
+def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
     if img_dir is None or models is None:
         ValueError('raw_dir or model is missing')
-    # filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.jpg")))
-    # filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
-    X = glob.glob('./data/all_images/*.jpg')
-    y = glob.glob('./data/all_masks/*.jpg')
-    seed = models.split('_')[-1][:4]
-    print('seed:', seed)
-    _, filename_img, _, filename_mask = model_selection.train_test_split(X, y, test_size=0.25, random_state=int(seed))
+    filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.jpg")))
+    filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
+    # X = glob.glob('./data/all_images/*.jpg')
+    # y = glob.glob('./data/all_masks/*.jpg')
+    # seed = models.split('_')[-1][:4]
+    # print('seed:', seed)
+    # _, filename_img, _, filename_mask = model_selection.train_test_split(X, y, test_size=0.25, random_state=int(seed))
 
     mask_sum = []
     img_sum = []
@@ -340,16 +340,16 @@ if __name__ == "__main__":
         # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
         sufix = modelslist[i].split('\\')[-1]
 
-        i ,a,std_acc, std_iou, var_acc, var_iou =metrics(modelslist[i], './data/val_images',  sufix=sufix,post=False)
+        i ,a,std_acc, std_iou, var_acc, var_iou =metrics(modelslist[i], './data/test_images', './data/test_maskes', sufix=sufix,post=True)
         iou.append(i)
         acc.append(a)
         std_accs.append(std_acc)
         std_ious.append(std_iou)
         var_accs.append(var_acc)
         var_ious.append(var_iou)
-    print(np.array(iou).mean())
-    print(np.array(acc).mean())
-    print(np.array(std_accs).mean())
-    print(np.array(std_ious).mean())
-    print(np.array(var_accs).mean())
-    print(np.array(var_ious).mean())
+    print('iou',np.array(iou).mean())
+    print('acc',np.array(acc).mean())
+    print('std_accs',np.array(std_accs).mean())
+    print('std_ious',np.array(std_ious).mean())
+    print('var_accs',np.array(var_accs).mean())
+    print('var_ious',np.array(var_ious).mean())

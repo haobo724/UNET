@@ -48,7 +48,7 @@ pyplot.title("FWIoU", fontsize=10)
 pyplot.hist(bins_iou_pre[:-1],weights=counts_iou_pre//5,alpha = 0.6,color='red',label='segmentation results')
 #设置子图标题
 pyplot.hist(bins_iou[:-1],weights=counts_iou//5,alpha = 0.7,label='segmentation results \nwith post-processing')
-pyplot.ylim(0,21)
+pyplot.ylim(0,15)
 pyplot.xlim(65, 100)
 pyplot.xlabel('[%]')
 pyplot.ylabel('Amount of frames [No.] ')
@@ -59,7 +59,7 @@ pyplot.title("Pixel Accuracy", fontsize=10)             #设置子图标题
 pyplot.hist(bins_acc_pre[:-1],weights=counts_acc_pre//5,alpha = 0.6,color='red',label='segmentation results')
 pyplot.hist(bins_acc[:-1],weights=counts_acc//5,alpha = 0.7,label='segmentation results \nwith post-processing')
 pyplot.legend(loc='upper left',fontsize='small' )
-pyplot.ylim(0,21)
+pyplot.ylim(0,15)
 pyplot.xlim(65, 100)
 pyplot.xlabel('[%]')
 
