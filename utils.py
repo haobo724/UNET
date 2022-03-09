@@ -13,6 +13,28 @@ def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
     torch.save(state, filename)
 
+def load_classes(path):
+    # Loads class labels at 'path'
+    fp = open(path, 'r')
+    names = fp.read().split('\n')
+    return list(filter(None, names))  # filter removes empty strings (such as last line)
+
+
+def parse_data_cfg(path):
+    """Parses the data configuration file"""
+    print('data_cfg ： ',path)
+    options = dict()
+    # options['gpus'] = '0,1,2,3'
+    # options['num_workers'] = '10'
+    with open(path, 'r') as fp:
+        lines = fp.readlines()
+    for line in lines:
+        line = line.strip()
+        if line == '' or line.startswith('#'):
+            continue
+        key, value = line.split('=')
+        options[key.strip()] = value.strip()
+    return options
 
 def load_checkpoint(checkpoint, model):
     print("=> Loading checkpoint")
@@ -34,10 +56,10 @@ def get_loaders(
     X = glob.glob('./data/all_images/*.jpg')
     y = glob.glob('./data/all_masks/*.jpg')
     X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.2, random_state=seed)
-    train_img =[]
-    train_mask =[]
-    val_img =[]
-    val_mask =[]
+    train_img = []
+    train_mask = []
+    val_img = []
+    val_mask = []
 
     for i, j in zip(X_test, y_test):
         i = os.path.split(i)[-1]
@@ -54,7 +76,7 @@ def get_loaders(
         mask_dir=train_maskdir,
         transform=train_transform,
         imgs=train_img,
-        masks=        train_mask
+        masks=train_mask
 
     )
     train_loader = DataLoader(

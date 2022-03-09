@@ -1,0 +1,6 @@
+gpus = 1
+max_epoch = 200
+accelerator = dp
+batch_size = 8
+lr = 5e-4
+mode_size = 32
