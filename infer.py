@@ -24,8 +24,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 4
 NUM_EPOCHS = 50
 NUM_WORKERS = 8
-IMAGE_HEIGHT = 274  # 1096 originally  0.25
-IMAGE_WIDTH = 484  # 1936 originally
+IMAGE_HEIGHT = 256  # 1096 originally  0.25
+IMAGE_WIDTH = 256  # 1936 originally
 PIN_MEMORY = True
 LOAD_MODEL = False
 
@@ -36,6 +36,7 @@ def add_training_args(parent_parser):
     parser.add_argument('--data_folder', nargs='+', type=str)
     parser.add_argument("--worker", type=int, default=8)
     parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--model", type=str, default='Unet')
 
     return parser
 
@@ -312,15 +313,15 @@ if __name__ == "__main__":
     
     '''
     modelslist = []
-    for root, dirs, files in os.walk(r".\model_corss"):
+    for root, dirs, files in os.walk(r".\model_pp"):
         for file in files:
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))
     for idx, model in enumerate(modelslist):
         print(f'{idx}:', model)
-    picked = int(input('Model:'))
-    assert abs(picked) <= len(modelslist) - 1
-    print('inference model : ', modelslist[picked])
+    # picked = int(input('Model:'))
+    # assert abs(picked) <= len(modelslist) - 1
+    # print('inference model : ', modelslist[picked])
     # g=infer_gui(modelslist[0])
     # image=g.forward(r'C:\Users\z00461wk\Desktop\Pressure_measure_activate tf1x\Camera_util/breast.jpg')
     # print(image.shape)
@@ -336,7 +337,7 @@ if __name__ == "__main__":
     std_ious = []
     var_accs = []
     var_ious = []
-    for i in range(5):
+    for i in range(len(modelslist)):
         # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
         sufix = modelslist[i].split('\\')[-1]
 

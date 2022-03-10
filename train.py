@@ -1,10 +1,11 @@
 import os
+
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
 import logging
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from mutil_train import unet_train,mutil_train
+from mutil_train import unet_train
 from pytorch_lightning.loggers import TensorBoardLogger
 from utils import (
     get_loaders,
@@ -17,10 +18,11 @@ from argparse import ArgumentParser
 
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-IMAGE_HEIGHT = 274  # 1096 originally  0.25
-IMAGE_WIDTH = 484  # 1936 originally
-# IMAGE_HEIGHT = 480  # 1096 originally  0.25
-# IMAGE_WIDTH = 640  # 1936 originally
+# IMAGE_HEIGHT = 274  # 1096 originally  0.25
+# IMAGE_WIDTH = 484  # 1936 originally 164 290
+IMAGE_HEIGHT = 256 # 1096 originally  0.25
+IMAGE_WIDTH = 256 # 1936 originally
+# print(IMAGE_HEIGHT,IMAGE_WIDTH)
 PIN_MEMORY = True
 TRAIN_IMG_DIR = "data/all_images/"
 TRAIN_MASK_DIR = "data/all_masks/"
@@ -35,10 +37,9 @@ def add_training_args(parent_parser):
     parser.add_argument("--worker", type=int, default=8)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument('--mode_size', type=int, default=64)
+    parser.add_argument("--model", type=str, default='Unet')
 
     return parser
-
-
 
 
 def main():
@@ -104,11 +105,10 @@ def main():
 
     )
     logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'))
-    trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, callbacks=[ckpt_callback], logger=logger)
-
+    trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, log_every_n_steps=20,
+                                            callbacks=[ckpt_callback], logger=logger)
 
     logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
-
 
     trainer.fit(model, train_loader, val_loader)
 

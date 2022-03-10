@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import torchmetrics
-from model import UNET, UNET_S
+from model import UNET, UNET_S,UNet_PP
 import torch.nn as nn
 import torchvision,torch
 import pytorch_lightning as pl
@@ -23,7 +23,9 @@ class unet_train(pl.LightningModule):
                 self.model = UNET(in_channels=3, out_channels=1).cuda()
         except:
             self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-        # self.model =  UNet_PP(num_classes=1, input_channels=3).cuda()
+        if hparams['model'] != 'Unet':
+            self.model =  UNet_PP(num_classes=1, input_channels=3).cuda()
+            print('Use Unet++')
         self.weights = torch.tensor(np.array([0.5, 0.5])).float()
         self.loss = nn.BCEWithLogitsLoss()
         self.train_logger = logging.getLogger(__name__)
@@ -44,6 +46,7 @@ class unet_train(pl.LightningModule):
 
     def training_step(self, batch, batch_idx, dataset_idx=None):
         x, y = batch
+
         y_hat = self(x)
 
         loss = self.loss.forward(y_hat, y.unsqueeze(dim=1))
