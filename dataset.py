@@ -1,6 +1,7 @@
 import cv2
 import os
 
+import imageio
 import numpy as np
 from PIL import Image
 from sklearn import model_selection
@@ -62,9 +63,9 @@ class CarvanaDataset_multi(Dataset):
     def __getitem__(self, index):
         img_path = os.path.join(self.image_dir, self.images[index])
         mask_path = os.path.join(self.mask_dir, self.masks[index])
-        image = np.array(Image.open(img_path).convert("RGB"))
-        mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
-        # mask = cv2.imread(mask_path, 0).ast
+        image = np.array(imageio.imread(img_path))
+        # mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
+        mask = cv2.imread(mask_path, 0).astype(np.float32)
 
         if self.transform is not None:
             augmentations = self.transform(image=image, mask=mask)

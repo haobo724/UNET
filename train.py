@@ -1,13 +1,15 @@
 import os
+# os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
 import torch
 import logging
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from mutil_train import unet_train,mutil_train
+from mutil_train import unet_train, mutil_train
 from pytorch_lightning.loggers import TensorBoardLogger
 from utils import (
     get_testloaders,
-get_loaders_multi
+    get_loaders_multi
 
 )
 import pytorch_lightning as pl
@@ -19,8 +21,8 @@ from argparse import ArgumentParser
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # IMAGE_HEIGHT = 274  # 1096 originally  0.25
 # IMAGE_WIDTH = 484  # 1936 originally 164 290
-IMAGE_HEIGHT = 192 # 1096 originally  0.25
-IMAGE_WIDTH = 192 # 1936 originally
+IMAGE_HEIGHT = 344  # 1096 originally  0.25
+IMAGE_WIDTH = 344  # 1936 originally
 # print(IMAGE_HEIGHT,IMAGE_WIDTH)
 PIN_MEMORY = True
 TRAIN_IMG_DIR = "data/train_set/"
@@ -28,7 +30,9 @@ TRAIN_MASK_DIR = "data/train_set_mask/"
 VAL_IMG_DIR = "data/train_set/"
 VAL_MASK_DIR = "data/train_set_mask/"
 test_dir = r"C:\Users\94836\Desktop\test_data"
-test_maskdir =r"C:\Users\94836\Desktop\test_data"
+test_maskdir = r"C:\Users\94836\Desktop\test_data"
+
+
 def add_training_args(parent_parser):
     parser = ArgumentParser(parents=[parent_parser], add_help=False)
 
@@ -46,14 +50,19 @@ def main():
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            A.ColorJitter(brightness=0.3, hue=0.3, p=0.4),
+            A.ColorJitter(brightness=0.3, hue=0.3, p=0.3),
             A.Rotate(limit=5, p=1.0),
-            A.HorizontalFlip(p=0.3),
-            A.VerticalFlip(p=0.2),
+            # A.HorizontalFlip(p=0.3),
+            # A.VerticalFlip(p=0.2),
             A.Normalize(
-                mean=[0.0, 0.0, 0.0],
-                std=[1.0, 1.0, 1.0],
+                mean=(0.617,
+                      0.6087,
+                      0.6254),
+                std=(0.208,
+                     0.198,
+                     0.192),
                 max_pixel_value=255.0,
+
             ),
             ToTensorV2(),
         ],
@@ -63,8 +72,12 @@ def main():
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.Normalize(
-                mean=[0.0, 0.0, 0.0],
-                std=[1.0, 1.0, 1.0],
+                mean=(0.617,
+                      0.6087,
+                      0.6254),
+                std=(0.208,
+                0.198,
+                0.192),
                 max_pixel_value=255.0,
             ),
             ToTensorV2(),
@@ -109,7 +122,6 @@ def main():
     trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, log_every_n_steps=5,
                                             callbacks=[ckpt_callback])
 
-
     trainer.fit(model, train_loader, val_loader)
 
     print('THE END')
@@ -134,14 +146,15 @@ def test():
     args = parser.parse_args()
     trainer = pl.Trainer()
     test_loader = get_testloaders(test_dir,
-                    test_maskdir,
-                    1,
-                    val_transforms,
-                    4,
-                    pin_memory=True,)
+                                  test_maskdir,
+                                  1,
+                                  val_transforms,
+                                  4,
+                                  pin_memory=True, )
     logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
     model = mutil_train.load_from_checkpoint(r'F:\semantic_segmentation_unet\last.ckpt', hparams=vars(args))
     trainer.test(model, test_loader)
+
 
 if __name__ == "__main__":
     # modelslist = []

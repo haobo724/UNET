@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 import numpy as np
 import torchmetrics
 from matplotlib import pyplot as plt
-
+from monai.losses import DiceLoss
 from model import UNET, UNET_S, UNet_PP
 import torch.nn as nn
 import torchvision, torch
@@ -154,11 +154,11 @@ class unet_train(pl.LightningModule):
 class mutil_train(unet_train):
     def __init__(self, hparams):
         super().__init__(hparams)
+        # self.loss = DiceLoss(to_onehot_y=True)
         self.loss = nn.CrossEntropyLoss()
         self.iou = torchmetrics.classification.jaccard.JaccardIndex(num_classes=3, absent_score=1, reduction='none').cuda()
 
         self.model = UNET_S(in_channels=3, out_channels=3).cuda()
-
     def training_step(self, batch, batch_idx, dataset_idx=None):
         x, y = batch
         y_hat = self(x)
@@ -193,7 +193,7 @@ class mutil_train(unet_train):
         torchvision.utils.save_image(y.float().unsqueeze(dim=1).cpu(), f"{folder}/label_{batch_idx}.png")
 
         return {"val_loss": loss,
-                "iou": RS_IOU[1], }
+                "iou": (RS_IOU[1]+RS_IOU[2])/2, }
         # 'acc': acc}
 
     def validation_epoch_end(self, outputs):
