@@ -1,6 +1,4 @@
 import os
-
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
 import logging
 import albumentations as A
@@ -21,8 +19,8 @@ from argparse import ArgumentParser
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # IMAGE_HEIGHT = 274  # 1096 originally  0.25
 # IMAGE_WIDTH = 484  # 1936 originally 164 290
-IMAGE_HEIGHT = 256 # 1096 originally  0.25
-IMAGE_WIDTH = 256 # 1936 originally
+IMAGE_HEIGHT = 192 # 1096 originally  0.25
+IMAGE_WIDTH = 192 # 1936 originally
 # print(IMAGE_HEIGHT,IMAGE_WIDTH)
 PIN_MEMORY = True
 TRAIN_IMG_DIR = "data/train_set/"
@@ -35,7 +33,7 @@ def add_training_args(parent_parser):
     parser = ArgumentParser(parents=[parent_parser], add_help=False)
 
     parser.add_argument('--data_folder', nargs='+', type=str)
-    parser.add_argument("--worker", type=int, default=0)
+    parser.add_argument("--worker", type=int, default=8)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument('--mode_size', type=int, default=64)
     parser.add_argument("--model", type=str, default='Unet')
