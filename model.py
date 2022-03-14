@@ -222,7 +222,7 @@ class UNet_PP(nn.Module):
 def test():
     x = torch.randn((3, 1, 480, 640))
     # model = UNET(in_channels=1, out_channels=1)
-    model = UNet_PP(num_classes=1, input_channels=1)
+    model = UNet_PP(num_classes=3, input_channels=1)
     preds = model(x)
     print(preds.shape)
     assert preds.shape == x.shape

@@ -5,10 +5,11 @@ import torch
 import logging
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from mutil_train import unet_train
+from mutil_train import unet_train,mutil_train
 from pytorch_lightning.loggers import TensorBoardLogger
 from utils import (
-    get_loaders,
+    get_testloaders,
+get_loaders_multi
 
 )
 import pytorch_lightning as pl
@@ -24,12 +25,12 @@ IMAGE_HEIGHT = 256 # 1096 originally  0.25
 IMAGE_WIDTH = 256 # 1936 originally
 # print(IMAGE_HEIGHT,IMAGE_WIDTH)
 PIN_MEMORY = True
-TRAIN_IMG_DIR = "data/all_images/"
-TRAIN_MASK_DIR = "data/all_masks/"
-VAL_IMG_DIR = "data/all_images/"
-VAL_MASK_DIR = "data/all_masks/"
-
-
+TRAIN_IMG_DIR = "data/train_set/"
+TRAIN_MASK_DIR = "data/train_set_mask/"
+VAL_IMG_DIR = "data/train_set/"
+VAL_MASK_DIR = "data/train_set_mask/"
+test_dir = r"C:\Users\94836\Desktop\test_data"
+test_maskdir =r"C:\Users\94836\Desktop\test_data"
 def add_training_args(parent_parser):
     parser = ArgumentParser(parents=[parent_parser], add_help=False)
 
@@ -77,9 +78,10 @@ def main():
     parser = unet_train.add_model_specific_args(parser)
     args = parser.parse_args()
 
-    model = unet_train(hparams=vars(args)).cuda()
+    # model = unet_train(hparams=vars(args)).cuda()
+    model = mutil_train(hparams=vars(args)).cuda()
 
-    train_loader, val_loader = get_loaders(
+    train_loader, val_loader = get_loaders_multi(
         TRAIN_IMG_DIR,
         TRAIN_MASK_DIR,
         VAL_IMG_DIR,
@@ -98,15 +100,16 @@ def main():
     else:
         name = 'M'
     ckpt_callback = ModelCheckpoint(
-        monitor='valid_IOU',
+        monitor='val/Iou',
         save_top_k=2,
         mode='max',
-        filename=f'{name}' + '{epoch:02d}-{valid_IOU:02f}'
+        filename='{epoch:02d}-{val/Iou:.2f}',
+        save_last=True
 
     )
-    logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'))
-    trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, log_every_n_steps=20,
-                                            callbacks=[ckpt_callback], logger=logger)
+    # logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'))
+    trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, log_every_n_steps=5,
+                                            callbacks=[ckpt_callback])
 
     logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
 
@@ -114,6 +117,34 @@ def main():
 
     print('THE END')
 
+
+def test():
+    val_transforms = A.Compose(
+        [
+            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
+            A.Normalize(
+                mean=[0.0, 0.0, 0.0],
+                std=[1.0, 1.0, 1.0],
+                max_pixel_value=255.0,
+            ),
+            ToTensorV2(),
+        ],
+    )
+    parser = ArgumentParser()
+    parser = add_training_args(parser)
+    parser = pl.Trainer.add_argparse_args(parser)
+    parser = unet_train.add_model_specific_args(parser)
+    args = parser.parse_args()
+    trainer = pl.Trainer()
+    test_loader = get_testloaders(test_dir,
+                    test_maskdir,
+                    1,
+                    val_transforms,
+                    4,
+                    pin_memory=True,)
+    logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
+    model = mutil_train.load_from_checkpoint(r'F:\semantic_segmentation_unet\last.ckpt', hparams=vars(args))
+    trainer.test(model, test_loader)
 
 if __name__ == "__main__":
     # modelslist = []
@@ -126,4 +157,4 @@ if __name__ == "__main__":
     #
     # infer(modelslist[-3], './testdata')
 
-    main()
+    test()
