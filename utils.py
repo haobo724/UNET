@@ -136,6 +136,7 @@ def get_loaders_multi(
         j = os.path.split(j)[-1]
         train_img.append(i)
         train_mask.append(j)
+    print('OK')
     train_ds = CarvanaDataset_multi(
         image_dir=train_dir,
         mask_dir=train_maskdir,

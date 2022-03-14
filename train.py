@@ -35,7 +35,7 @@ def add_training_args(parent_parser):
     parser = ArgumentParser(parents=[parent_parser], add_help=False)
 
     parser.add_argument('--data_folder', nargs='+', type=str)
-    parser.add_argument("--worker", type=int, default=8)
+    parser.add_argument("--worker", type=int, default=0)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument('--mode_size', type=int, default=64)
     parser.add_argument("--model", type=str, default='Unet')
@@ -100,10 +100,10 @@ def main():
     else:
         name = 'M'
     ckpt_callback = ModelCheckpoint(
-        monitor='val/Iou',
+        monitor='val_Iou',
         save_top_k=2,
         mode='max',
-        filename='{epoch:02d}-{val/Iou:.2f}',
+        filename='{epoch:02d}-{val_Iou:.2f}',
         save_last=True
 
     )
@@ -111,7 +111,6 @@ def main():
     trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, log_every_n_steps=5,
                                             callbacks=[ckpt_callback])
 
-    logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
 
     trainer.fit(model, train_loader, val_loader)
 
@@ -157,4 +156,4 @@ if __name__ == "__main__":
     #
     # infer(modelslist[-3], './testdata')
 
-    test()
+    main()

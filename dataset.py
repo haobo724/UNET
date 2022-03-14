@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 
 
 class CarvanaDataset(Dataset):
-    def __init__(self, image_dir, mask_dir,imgs,masks , transform=None):
+    def __init__(self, image_dir, mask_dir, imgs, masks, transform=None):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.transform = transform
@@ -16,8 +16,6 @@ class CarvanaDataset(Dataset):
         # self.masks = os.listdir(mask_dir)
         self.images = imgs
         self.masks = masks
-
-
 
         print(len(self.images))
         print(self.images)
@@ -30,8 +28,8 @@ class CarvanaDataset(Dataset):
         mask_path = os.path.join(self.mask_dir, self.masks[index])
         image = np.array(Image.open(img_path).convert("RGB"))
         mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
-        if np.max(mask)!=1:
-            if len(np.unique(mask))==2:
+        if np.max(mask) != 1:
+            if len(np.unique(mask)) == 2:
                 low, high = np.unique(mask)
                 mask[mask == high] = 1.0
                 mask[mask == low] = 0.0
@@ -45,16 +43,15 @@ class CarvanaDataset(Dataset):
 
         return image, mask
 
+
 class CarvanaDataset_multi(Dataset):
-    def __init__(self, image_dir, mask_dir,imgs,masks , transform=None):
+    def __init__(self, image_dir, mask_dir, imgs, masks, transform=None):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.transform = transform
 
         self.images = imgs
         self.masks = masks
-
-
 
         print(len(self.images))
         print(self.images)
@@ -66,8 +63,8 @@ class CarvanaDataset_multi(Dataset):
         img_path = os.path.join(self.image_dir, self.images[index])
         mask_path = os.path.join(self.mask_dir, self.masks[index])
         image = np.array(Image.open(img_path).convert("RGB"))
-        # mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
-        mask = np.float32(cv2.imread(mask_path,0))
+        mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
+        # mask = cv2.imread(mask_path, 0).ast
 
         if self.transform is not None:
             augmentations = self.transform(image=image, mask=mask)
