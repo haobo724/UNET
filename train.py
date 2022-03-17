@@ -1,10 +1,14 @@
 import os
 # os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-
+import cv2
+import numpy as np
 import torch
 import logging
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+from tqdm import tqdm
+from matplotlib import pyplot as plt
+
 from mutil_train import unet_train, mutil_train
 from pytorch_lightning.loggers import TensorBoardLogger
 from utils import (
@@ -132,8 +136,14 @@ def test():
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.Normalize(
-                mean=[0.0, 0.0, 0.0],
-                std=[1.0, 1.0, 1.0],
+                # mean=[0.0, 0.0, 0.0],
+                # std=[1.0, 1.0, 1.0],
+                mean=(0.617,
+                      0.6087,
+                      0.6254),
+                std=(0.208,
+                     0.198,
+                     0.192),
                 max_pixel_value=255.0,
             ),
             ToTensorV2(),
@@ -152,8 +162,94 @@ def test():
                                   4,
                                   pin_memory=True, )
     logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
-    model = mutil_train.load_from_checkpoint(r'F:\semantic_segmentation_unet\last.ckpt', hparams=vars(args))
+    model = mutil_train.load_from_checkpoint(r'.\last.ckpt', hparams=vars(args))
     trainer.test(model, test_loader)
+
+def infer_multi(model):
+    model = mutil_train.load_from_checkpoint(model)
+    infer_xform = A.Compose(
+        [
+            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
+            A.Normalize(
+                # mean=[0.0, 0.0, 0.0],
+                # std=[1.0, 1.0, 1.0],
+                mean=(0.617,
+                      0.6087,
+                      0.6254),
+                std=(0.208,
+                     0.198,
+                     0.192),
+                max_pixel_value=255.0,
+            ),
+            ToTensorV2(),
+        ],
+    )
+    video_path = '../MA/Template_saved/2022-02-15-15-43-14/breast.avi'
+    cap = cv2.VideoCapture(video_path)
+    total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    print(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    with torch.no_grad():
+
+        with tqdm(total=total_frames) as pbar:
+            # plt.ion()
+            #
+            # plt.figure()
+
+            while True:
+                ret, frame = cap.read()
+                if ret:
+                    # print(frame.shape)
+                    pbar.update(1)
+                    frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+                    input = frame
+                    # resize_xform = A.Compose(
+                    #     [
+                    #         A.Resize(height=input.shape[0], width=input.shape[1]),
+                    #
+                    #         ToTensorV2(),
+                    #     ],
+                    # )
+                    input = infer_xform(image=input)
+                    x = input["image"].cuda()
+
+                    x = torch.unsqueeze(x, dim=0)
+                    model.eval()
+                    y_hat = model(x)
+                    preds = torch.softmax(y_hat, dim=1)
+
+                    pred = preds.argmax(dim=1).float().cpu()
+                    img = np.stack([pred[0] for _ in range(3)], axis=-1)
+                    img = mapping_color(img)
+                    # temp = np.array(torch.movedim(x[0].cpu(), 0, 2) * 255)
+                    temp = cv2.resize(frame,(IMAGE_HEIGHT,IMAGE_WIDTH))
+                    concat = np.hstack([img, temp]).astype(np.uint8)
+                    concat = cv2.cvtColor(concat,cv2.COLOR_BGR2RGB)
+                    # concat[...,0],concat[...,2]= concat[...,2],concat[...,0]
+                    # print(concat.shape)
+                    # concat = cv2.cvtColor(concat,cv2.COLOR_BGR2RGB)
+                    cv2.imshow('test',concat)
+                    cv2.waitKey(1)
+                    # plt.imshow(concat)
+                    # plt.show()
+                    # plt.pause(0.01)
+                else:
+                    break
+                if cv2.waitKey(1) == ord('q'):
+                    break
+        cap.release()
+def mapping_color(img):
+    '''
+    自己写的，速度快不少，但要自己规定colormap，也可以把制定colormap拿出来单独用randint做，
+    但是不能保证一个series里每次运行生成的colormap都一样，或许可以用种子点？
+    反正类少还是可以考虑用这个
+            '''
+    color_map = [[247, 251, 255], [171, 207, 209], [55, 135, 192]]
+    for label in range(3):
+        cord_1 = np.where(img[..., 0] == label)
+        img[cord_1[0], cord_1[1], 0] = color_map[label][0]
+        img[cord_1[0], cord_1[1], 1] = color_map[label][1]
+        img[cord_1[0], cord_1[1], 2] = color_map[label][2]
+    return img.astype(int)
 
 
 if __name__ == "__main__":
@@ -166,5 +262,5 @@ if __name__ == "__main__":
     # print(modelslist[-3])
     #
     # infer(modelslist[-3], './testdata')
-
-    main()
+    model = './epoch=95-val_Iou=0.60.ckpt'
+    infer_multi(model)

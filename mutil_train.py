@@ -156,7 +156,7 @@ class mutil_train(unet_train):
         super().__init__(hparams)
         # self.loss = DiceLoss(to_onehot_y=True)
         self.loss = nn.CrossEntropyLoss()
-        self.iou = torchmetrics.classification.jaccard.JaccardIndex(num_classes=3, absent_score=1, reduction='none').cuda()
+        self.iou = pl.metrics.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
 
         self.model = UNET_S(in_channels=3, out_channels=3).cuda()
     def training_step(self, batch, batch_idx, dataset_idx=None):
