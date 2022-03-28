@@ -24,15 +24,15 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 4
 NUM_EPOCHS = 50
 NUM_WORKERS = 8
-IMAGE_HEIGHT = 256  # 1096 originally  0.25
-IMAGE_WIDTH = 256  # 1936 originally
+IMAGE_HEIGHT = 128  # 1096 originally  0.25
+IMAGE_WIDTH = 128  # 1936 originally
 PIN_MEMORY = True
 LOAD_MODEL = False
 
 
 def add_training_args(parent_parser):
     parser = ArgumentParser(parents=[parent_parser], add_help=False)
-    parser.add_argument('--mode_size', type=int, default=64)
+    parser.add_argument('--mode_size', type=int, default=32)
     parser.add_argument('--data_folder', nargs='+', type=str)
     parser.add_argument("--worker", type=int, default=8)
     parser.add_argument("--batch_size", type=int, default=4)
@@ -153,8 +153,11 @@ def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
     # test=torch.load(models)
     # mode_size=test['state_dict']['model.ups.0.weight'].size()[0]/16
     # models['hyper_parameters'][0].update({"mode_size": int(mode_size)})
+    parser = ArgumentParser()
+    parser = add_training_args(parser)
+    args = parser.parse_args()
 
-    model = unet_train.load_from_checkpoint(models)
+    model = unet_train.load_from_checkpoint(models,hparams=vars(args))
     infer_xform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
@@ -171,7 +174,7 @@ def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
             input = np.array(Image.open(filename_img[index]), dtype=np.uint8)
             resize_xform = A.Compose(
                 [
-                    A.Resize(height=input.shape[0], width=input.shape[1]),
+                    A.Resize(height=input.shape[0], width=input.shape[1],interpolation=cv2.INTER_NEAREST),
 
                     ToTensorV2(),
                 ],
@@ -187,6 +190,7 @@ def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
 
             preds = resize_xform(image=preds.cpu().numpy())
             preds = preds["image"].numpy() * 1
+
             if post:
                 preds = post_processing(preds) / 255
             preds = preds.squeeze()
@@ -313,7 +317,7 @@ if __name__ == "__main__":
     
     '''
     modelslist = []
-    for root, dirs, files in os.walk(r".\model_pp"):
+    for root, dirs, files in os.walk(r".\model_pixel"):
         for file in files:
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))

@@ -1,21 +1,35 @@
 import os
 from sklearn import model_selection
-import os
-
+import os,numpy as np
+import torch
+from torch.nn import CrossEntropyLoss,BCEWithLogitsLoss,BCELoss
 from sklearn import model_selection
+import monai
+loss = CrossEntropyLoss(reduction='sum')
+BCE_LOG_LOSS = BCEWithLogitsLoss()
+# target =np.random.randn(3,3)
+# target =torch.randn((4,10,10)).long()
+target =torch.rand((1,10,12)).random_(0,2).long()
+target_onhot = torch.nn.functional.one_hot(target).float()
+target_onhot = torch.moveaxis(target_onhot,-1,1)
+print(target_onhot.size())
 
-mask_dir = r'C:\ChangLiu\MasterThesis\TrainSet\full_13012020\Label_class_1'
-img_dir = r'C:\Users\z00461wk\Desktop\haobo\semantic_segmentation_unet\data\train_images'
-save_dir = './test_mask/'
+input = torch.ones((1,2,10,12))
 
-X = glob.glob('./data/all_images/*.jpg')
-y = glob.glob('./data/all_masks/*.jpg')
+input_soft =torch.softmax(input,dim=1)
+input_log =torch.log(input_soft)
+res=torch.nn.functional.nll_loss(input_log, target)
 
-X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size = 0.25, random_state = 1234)
-img_name=[]
-for i in X_train:
-    i = os.path.split(i)[-1]
-    img_name.append(i)
+result_manuel = -torch.sum(target_onhot*input_log)/target.shape[0]
+result = loss.forward(input,target_onhot)
+result_normal = loss.forward(input,target)
+# result_normal2 = loss.forward(input,target.unsqueeze(1))
+print(result,result_normal,result_manuel)
+input_onechannel = torch.ones((1,10,12))
+bce = BCELoss(reduction='sum')
+result2 = BCE_LOG_LOSS.forward(input_onechannel, target.float())
+result3 = bce.forward(input_soft, target_onhot.float())
+print(result2,result3)
 
 # img = os.listdir(img_dir)
 # for i in img:

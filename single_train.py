@@ -10,12 +10,11 @@ from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
 # from matplotlib import pyplot as plt
 
-from mutil_train import unet_train, mutil_train
+from mutil_train import unet_train
 # from pytorch_lightning.loggers import TensorBoardLogger
 from utils import (
     get_testloaders,
-    get_loaders_multi
-
+get_loaders
 )
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -26,14 +25,17 @@ from argparse import ArgumentParser
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # IMAGE_HEIGHT = 274  # 1096 originally  0.25
 # IMAGE_WIDTH = 484  # 1936 originally 164 290
-IMAGE_HEIGHT = 256  # 1096 originally  0.25
-IMAGE_WIDTH = 256  # 1936 originally
+IMAGE_HEIGHT = 33  # 1096 originally  0.25
+IMAGE_WIDTH = 58  # 1936 originally
 # print(IMAGE_HEIGHT,IMAGE_WIDTH)
 PIN_MEMORY = True
-TRAIN_IMG_DIR = "data/train_set/"
-TRAIN_MASK_DIR = "data/train_set_mask/"
-VAL_IMG_DIR = "data/train_set/"
-VAL_MASK_DIR = "data/train_set_mask/"
+
+
+TRAIN_IMG_DIR = "data/all_images/"
+TRAIN_MASK_DIR = "data/all_masks/"
+VAL_IMG_DIR = "data/all_images/"
+VAL_MASK_DIR = "data/all_masks/"
+
 test_dir = r"C:\Users\94836\Desktop\test_data"
 test_maskdir = r"C:\Users\94836\Desktop\test_data"
 
@@ -54,18 +56,15 @@ def main():
     pl.seed_everything(1111)
     train_transform = A.Compose(
         [
-            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH,interpolation=cv2.INTER_NEAREST),
+            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.ColorJitter(brightness=0.3, hue=0.3, p=0.3),
             A.Rotate(limit=5, p=1.0),
-            # A.HorizontalFlip(p=0.3),
-            # A.VerticalFlip(p=0.2),
+            A.HorizontalFlip(p=0.3),
+            A.VerticalFlip(p=0.2),
             A.Normalize(
-                mean=(0.617,
-                      0.6087,
-                      0.6254),
-                std=(0.208,
-                     0.198,
-                     0.192),
+                mean=[0.0, 0.0, 0.0],
+                std=[1.0, 1.0, 1.0],
+
                 max_pixel_value=255.0,
 
             ),
@@ -75,14 +74,11 @@ def main():
 
     val_transforms = A.Compose(
         [
-            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH,interpolation=cv2.INTER_NEAREST),
+            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.Normalize(
-                mean=(0.617,
-                      0.6087,
-                      0.6254),
-                std=(0.208,
-                0.198,
-                0.192),
+                mean=[0.0, 0.0, 0.0],
+                std=[1.0, 1.0, 1.0],
+
                 max_pixel_value=255.0,
             ),
             ToTensorV2(),
@@ -95,9 +91,9 @@ def main():
     args = parser.parse_args()
 
     # model = unet_train(hparams=vars(args)).cuda()
-    model = mutil_train(hparams=vars(args)).cuda()
+    model = unet_train(hparams=vars(args)).cuda()
 
-    train_loader, val_loader = get_loaders_multi(
+    train_loader, val_loader = get_loaders(
         TRAIN_IMG_DIR,
         TRAIN_MASK_DIR,
         VAL_IMG_DIR,
@@ -163,23 +159,23 @@ def test():
                                   4,
                                   pin_memory=True, )
     logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
-    model = mutil_train.load_from_checkpoint(r'.\last.ckpt', hparams=vars(args))
+    model = unet_train.load_from_checkpoint(r'.\last.ckpt', hparams=vars(args))
     trainer.test(model, test_loader)
 
 def infer_multi(model):
-    model = mutil_train.load_from_checkpoint(model)
+    model = unet_train.load_from_checkpoint(model)
     infer_xform = A.Compose(
         [
-            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH,interpolation=cv2.INTER_NEAREST),
+            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.Normalize(
-                # mean=[0.0, 0.0, 0.0],
-                # std=[1.0, 1.0, 1.0],
-                mean=(0.617,
-                      0.6087,
-                      0.6254),
-                std=(0.208,
-                     0.198,
-                     0.192),
+                mean=[0.0, 0.0, 0.0],
+                std=[1.0, 1.0, 1.0],
+                # mean=(0.617,
+                #       0.6087,
+                #       0.6254),
+                # std=(0.208,
+                #      0.198,
+                #      0.192),
                 max_pixel_value=255.0,
             ),
             ToTensorV2(),
@@ -189,15 +185,15 @@ def infer_multi(model):
     codec = cv2.VideoWriter_fourcc(*'MJPG')
     frameSize_s = (512, 256)  # 指定窗口大小
 
-    videos = ['.\\video\\breast.avi']
-    # videos = glob.glob('./video/clinical/*.avi')
+    # video_path = './video/breast.avi'
+    videos = glob.glob('./video/clinical/*.avi')
     for video_path in videos:
     # video_path = './video/c4.avi'
         cap = cv2.VideoCapture(video_path)
         total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
         print(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        name = 'new_dice_mask_'+video_path.split('\\')[-1]
+        name = 'mask_'+video_path.split('\\')[-1]
         out_path = os.path.join('./video/',name)
         print(out_path)
         out = cv2.VideoWriter(out_path, codec,5, frameSize_s)
@@ -272,6 +268,6 @@ if __name__ == "__main__":
     #
     # infer(modelslist[-3], './testdata')
     # model = './epoch=95-val_Iou=0.60.ckpt'
-    # model = './dice.ckpt'
+    # model = './last.ckpt'
     # infer_multi(model)
     main()

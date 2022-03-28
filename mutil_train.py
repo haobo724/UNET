@@ -9,6 +9,7 @@ import torch.nn as nn
 import torchvision, torch
 import pytorch_lightning as pl
 import logging
+import torch.nn.functional as F
 
 
 class unet_train(pl.LightningModule):
@@ -51,8 +52,7 @@ class unet_train(pl.LightningModule):
 
         y_hat = self(x)
         print(y_hat.size(), y.size())
-        loss = self.loss.forward(y_hat, y.long())
-
+        loss = self.loss.forward(y_hat, y.unsqueeze(dim=1))
         self.log("loss", loss)
         return {"loss": loss}
 
@@ -129,11 +129,12 @@ class unet_train(pl.LightningModule):
         self.log('train/loss', avg_loss)
 
     def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        # avg_iou = torch.stack([x['iou'] for x in outputs]).mean()
+        avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
+        avg_iou = torch.stack([x['iou'] for x in outputs]).mean()
         # avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
         # self.train_logger.info("Validatoin epoch {} ends, val_loss = {}".format(self.current_epoch, avg_loss))
         self.log('val_loss', avg_loss)
+        self.log('val_Iou', avg_iou,logger=True)
         # self.log('valid_IOU', avg_iou, logger=True)
         # self.log('valid_ACC', avg_acc, logger=True)
         print('============end validation==============')
@@ -154,7 +155,7 @@ class unet_train(pl.LightningModule):
 class mutil_train(unet_train):
     def __init__(self, hparams):
         super().__init__(hparams)
-        # self.loss = DiceLoss(to_onehot_y=True)
+        # self.loss = DiceLoss(to_onehot_y=False)
         self.loss = nn.CrossEntropyLoss()
         self.iou = pl.metrics.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
 
@@ -173,9 +174,13 @@ class mutil_train(unet_train):
         x, y = batch
         y_hat = self(x)
         preds = torch.softmax(y_hat, dim=1)
+
+        # loss = self.loss.forward(preds.float(), F.one_hot(y.long(),3).permute(0, 3, 1, 2).float())
+        loss = self.loss.forward(y_hat, y.long())
+
         pred = preds.argmax(dim=1).float()
 
-        loss = self.loss.forward(pred.unsqueeze(dim=1), y.unsqueeze(dim=1))
+        # loss = self.loss.forward(pred.unsqueeze(dim=1), y.unsqueeze(dim=1))
 
         self.log("val_loss", loss)
 
