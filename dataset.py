@@ -55,7 +55,6 @@ class CarvanaDataset_multi(Dataset):
         self.masks = masks
 
         print(len(self.images))
-        print(self.images)
 
     def __len__(self):
         return len(self.images)
@@ -73,3 +72,25 @@ class CarvanaDataset_multi(Dataset):
             mask = augmentations["mask"]
 
         return image, mask
+
+
+class LeafData(Dataset):
+
+    def __init__(self,
+                 data,
+                 transform=None):
+        self.data = data
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        # import
+        # path = os.path.join(self.directory, self.data.iloc[idx]['image_id'])
+        image = np.array(imageio.imread(self.data[idx]))
+        # augmentations
+        if self.transform is not None:
+            image = self.transform(image=image)['image']
+
+        return image

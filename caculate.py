@@ -66,8 +66,11 @@ def calculate_eval_matrix(num_cls, labels, predictions):
     # return:
     #       eval_mat[n_batch, i, j]: num of pixels of class i, predicted as class j
     # print(labels.shape, predictions.shape)
-    assert labels.shape == predictions.shape
-
+    try:
+        assert labels.shape == predictions.shape
+    except AssertionError:
+        print(labels.shape,predictions.shape)
+        
     # convert to same data type
     n_batch = labels.shape[0]
 

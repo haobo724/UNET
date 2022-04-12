@@ -11,23 +11,27 @@ import pandas as pd
 from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
 from sklearn import model_selection
 
+from utils import cal_std_mean
+
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import PIL.Image as Image
 import torchvision
-from train import unet_train
+from train import unet_train,mutil_train
 from model import UNET
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 4
 NUM_EPOCHS = 50
 NUM_WORKERS = 8
-IMAGE_HEIGHT = 128  # 1096 originally  0.25
-IMAGE_WIDTH = 128  # 1936 originally
+IMAGE_HEIGHT = 274  # 1096 originally  0.25
+IMAGE_WIDTH = 484  # 1936 originally
 PIN_MEMORY = True
 LOAD_MODEL = False
+TEST_DIR='data/test_set'
+mean_value, std_value = cal_std_mean(TEST_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 
 
 def add_training_args(parent_parser):
@@ -136,7 +140,7 @@ def infer(models, raw_dir, sufix):
 def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
     if img_dir is None or models is None:
         ValueError('raw_dir or model is missing')
-    filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.jpg")))
+    filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.tiff")))
     filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
     # X = glob.glob('./data/all_images/*.jpg')
     # y = glob.glob('./data/all_masks/*.jpg')
@@ -147,7 +151,7 @@ def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
     mask_sum = []
     img_sum = []
     for mask in filename_mask:
-        mask_img = cv2.imread(mask, 0) / 255
+        mask_img = cv2.imread(mask, 0)
         mask_sum.append(mask_img)
     mask_sum = np.array(mask_sum)
     # test=torch.load(models)
@@ -162,9 +166,9 @@ def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.Normalize(
-                mean=[0.0, 0.0, 0.0],
-                std=[1.0, 1.0, 1.0],
-                max_pixel_value=255.0,
+                mean=mean_value,
+                std= std_value,
+                # max_pixel_value=255.0,
             ),
             ToTensorV2(),
         ],
@@ -317,24 +321,13 @@ if __name__ == "__main__":
     
     '''
     modelslist = []
-    for root, dirs, files in os.walk(r".\model_pixel"):
+    for root, dirs, files in os.walk(r"clinic_exper"):
         for file in files:
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))
     for idx, model in enumerate(modelslist):
         print(f'{idx}:', model)
-    # picked = int(input('Model:'))
-    # assert abs(picked) <= len(modelslist) - 1
-    # print('inference model : ', modelslist[picked])
-    # g=infer_gui(modelslist[0])
-    # image=g.forward(r'C:\Users\z00461wk\Desktop\Pressure_measure_activate tf1x\Camera_util/breast.jpg')
-    # print(image.shape)
-    # plt.figure()
-    # plt.imshow(image)
-    # plt.show()
-    # infer(modelslist[picked], './data/val_images',sufix=sufix)
-    # infer(modelslist[picked], './testdata',sufix=sufix)
-    # infer(modelslist[picked], r'F:\semantic_segmentation_unet\Cam62-71\20181215-06.00', sufix=sufix)
+
     iou = []
     acc = []
     std_accs = []
@@ -345,7 +338,7 @@ if __name__ == "__main__":
         # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
         sufix = modelslist[i].split('\\')[-1]
 
-        i ,a,std_acc, std_iou, var_acc, var_iou =metrics(modelslist[i], './data/test_images', './data/test_maskes', sufix=sufix,post=True)
+        i ,a,std_acc, std_iou, var_acc, var_iou =metrics(modelslist[i], './data/test_set', './data/test_set_mask', sufix=sufix,post=True)
         iou.append(i)
         acc.append(a)
         std_accs.append(std_acc)

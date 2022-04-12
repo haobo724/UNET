@@ -1,20 +1,21 @@
 import glob
 import os
+
+from albumentations.pytorch import ToTensorV2
+
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 import cv2
 import numpy as np
 import torch
 import logging
 import albumentations as A
-from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
-# from matplotlib import pyplot as plt
 
 from mutil_train import unet_train, mutil_train
-# from pytorch_lightning.loggers import TensorBoardLogger
 from utils import (
     get_testloaders,
-    get_loaders_multi
+    get_loaders_multi,
+cal_std_mean
 
 )
 import pytorch_lightning as pl
@@ -24,49 +25,48 @@ from argparse import ArgumentParser
 
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-# IMAGE_HEIGHT = 274  # 1096 originally  0.25
-# IMAGE_WIDTH = 484  # 1936 originally 164 290
-IMAGE_HEIGHT = 256  # 1096 originally  0.25
-IMAGE_WIDTH = 256  # 1936 originally
+IMAGE_HEIGHT = 274  # 1096 originally  0.25
+IMAGE_WIDTH = 484 # 1936 originally 164 290
+# IMAGE_HEIGHT = 256  # 1096 originally  0.25
+# IMAGE_WIDTH = 256  # 1936 originally
 # print(IMAGE_HEIGHT,IMAGE_WIDTH)
 PIN_MEMORY = True
-TRAIN_IMG_DIR = "data/train_set/"
-TRAIN_MASK_DIR = "data/train_set_mask/"
-VAL_IMG_DIR = "data/train_set/"
-VAL_MASK_DIR = "data/train_set_mask/"
-test_dir = r"C:\Users\94836\Desktop\test_data"
-test_maskdir = r"C:\Users\94836\Desktop\test_data"
+TRAIN_IMG_DIR = "data/clinic/"
+TRAIN_MASK_DIR = "data/clinic_mask/"
+
+VAL_IMG_DIR = TRAIN_IMG_DIR
+VAL_MASK_DIR = TRAIN_MASK_DIR
+test_dir = r"testdata/"
+test_maskdir = r"testdata/"
 
 
 def add_training_args(parent_parser):
     parser = ArgumentParser(parents=[parent_parser], add_help=False)
 
     parser.add_argument('--data_folder', nargs='+', type=str)
-    parser.add_argument("--worker", type=int, default=8)
+    parser.add_argument("--worker", type=int, default=0)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument('--mode_size', type=int, default=64)
     parser.add_argument("--model", type=str, default='Unet')
+    parser.add_argument("--Continue", type=bool, default=False)
 
     return parser
 
 
 def main():
     pl.seed_everything(1111)
+    mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR,IMAGE_HEIGHT,IMAGE_WIDTH)
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH,interpolation=cv2.INTER_NEAREST),
-            A.ColorJitter(brightness=0.3, hue=0.3, p=0.3),
+            A.ColorJitter(brightness=0.3, hue=0.2, p=0.3),
             A.Rotate(limit=5, p=1.0),
             # A.HorizontalFlip(p=0.3),
             # A.VerticalFlip(p=0.2),
             A.Normalize(
-                mean=(0.617,
-                      0.6087,
-                      0.6254),
-                std=(0.208,
-                     0.198,
-                     0.192),
-                max_pixel_value=255.0,
+                mean=mean_value,
+                std=std_value,
+                # max_pixel_value=255.0,
 
             ),
             ToTensorV2(),
@@ -77,13 +77,9 @@ def main():
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH,interpolation=cv2.INTER_NEAREST),
             A.Normalize(
-                mean=(0.617,
-                      0.6087,
-                      0.6254),
-                std=(0.208,
-                0.198,
-                0.192),
-                max_pixel_value=255.0,
+                mean=mean_value,
+                std=std_value,
+                # max_pixel_value=255.0,
             ),
             ToTensorV2(),
         ],
@@ -94,7 +90,6 @@ def main():
     parser = unet_train.add_model_specific_args(parser)
     args = parser.parse_args()
 
-    # model = unet_train(hparams=vars(args)).cuda()
     model = mutil_train(hparams=vars(args)).cuda()
 
     train_loader, val_loader = get_loaders_multi(
@@ -109,6 +104,9 @@ def main():
         PIN_MEMORY,
         seed=1111
     )
+
+    print(len(train_loader),len(val_loader))
+
     if args.mode_size == 32:
         name = 'S'
     elif args.mode_size == 16:
@@ -124,8 +122,20 @@ def main():
 
     )
     # logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'))
-    trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, log_every_n_steps=5,
-                                            callbacks=[ckpt_callback])
+
+    path = 'F:\semantic_segmentation_unet\clinic_exper\epoch=179-val_Iou=0.62.ckpt'
+    print(args.Continue)
+    if args.Continue==True:
+
+        args.max_epochs *=3
+        trainer = pl.Trainer.from_argparse_args(args, resume_from_checkpoint=path, check_val_every_n_epoch=3,
+                                                log_every_n_steps=5,
+                                                callbacks=[ckpt_callback])
+        print('Continue train from %s'.format({path}) )
+    else:
+        trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3,
+                                                log_every_n_steps=5,
+                                                callbacks=[ckpt_callback])
 
     trainer.fit(model, train_loader, val_loader)
 
@@ -133,19 +143,16 @@ def main():
 
 
 def test():
+    mean_v, std_v = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
     val_transforms = A.Compose(
         [
-            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
+            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
             A.Normalize(
                 # mean=[0.0, 0.0, 0.0],
                 # std=[1.0, 1.0, 1.0],
-                mean=(0.617,
-                      0.6087,
-                      0.6254),
-                std=(0.208,
-                     0.198,
-                     0.192),
-                max_pixel_value=255.0,
+                mean=mean_v,
+                std=std_v,
+                # max_pixel_value=255.0,
             ),
             ToTensorV2(),
         ],
@@ -163,24 +170,21 @@ def test():
                                   4,
                                   pin_memory=True, )
     logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
-    model = mutil_train.load_from_checkpoint(r'.\last.ckpt', hparams=vars(args))
+    model = mutil_train.load_from_checkpoint(r'clinic_exper/epoch=398-val_Iou=0.87_clinic_continue274484.ckpt', hparams=vars(args))
     trainer.test(model, test_loader)
 
 def infer_multi(model):
     model = mutil_train.load_from_checkpoint(model)
+    mean_v,std_v=cal_std_mean(TRAIN_IMG_DIR,IMAGE_HEIGHT,IMAGE_WIDTH)
     infer_xform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH,interpolation=cv2.INTER_NEAREST),
             A.Normalize(
                 # mean=[0.0, 0.0, 0.0],
                 # std=[1.0, 1.0, 1.0],
-                mean=(0.617,
-                      0.6087,
-                      0.6254),
-                std=(0.208,
-                     0.198,
-                     0.192),
-                max_pixel_value=255.0,
+                mean=mean_v,
+                std=std_v,
+                # max_pixel_value=255.0,
             ),
             ToTensorV2(),
         ],
@@ -246,6 +250,7 @@ def infer_multi(model):
                         break
             cap.release()
             out.release()
+
 def mapping_color(img):
     '''
     自己写的，速度快不少，但要自己规定colormap，也可以把制定colormap拿出来单独用randint做，
@@ -274,4 +279,4 @@ if __name__ == "__main__":
     # model = './epoch=95-val_Iou=0.60.ckpt'
     # model = './dice.ckpt'
     # infer_multi(model)
-    main()
+    test()
