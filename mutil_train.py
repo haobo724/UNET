@@ -29,7 +29,7 @@ class unet_train(pl.LightningModule):
             self.model = UNET_S(in_channels=3, out_channels=1).cuda()
         if hparams['model'] != 'Unet':
             self.model = UNet_PP(num_classes=1, input_channels=3).cuda()
-            print('Use Unet++')
+            print('[INFO] Use Unet++')
         self.weights = torch.tensor(np.array([0.5, 0.5])).float()
         self.loss = nn.BCEWithLogitsLoss()
         self.train_logger = logging.getLogger(__name__)
@@ -155,11 +155,13 @@ class unet_train(pl.LightningModule):
 class mutil_train(unet_train):
     def __init__(self, hparams):
         super().__init__(hparams)
-        # self.loss = DiceLoss(to_onehot_y=False)
         self.loss = nn.CrossEntropyLoss()
         self.iou = pl.metrics.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
-
-        self.model = UNET_S(in_channels=3, out_channels=3).cuda()
+        if hparams['model'] != 'Unet':
+            self.model = UNet_PP(num_classes=1, input_channels=3).cuda()
+            print('[INFO] Use Unet++')
+        else:
+            self.model = UNET_S(in_channels=3, out_channels=3).cuda()
     def training_step(self, batch, batch_idx, dataset_idx=None):
         x, y = batch
         y_hat = self(x)

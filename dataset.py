@@ -64,7 +64,7 @@ class CarvanaDataset_multi(Dataset):
         mask_path = os.path.join(self.mask_dir, self.masks[index])
         image = np.array(imageio.imread(img_path))
         # mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
-        mask = cv2.imread(mask_path, 0).astype(np.float32)
+        mask = cv2.imread(mask_path)[...,0].astype(np.float32)
 
         if self.transform is not None:
             augmentations = self.transform(image=image, mask=mask)

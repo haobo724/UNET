@@ -3,7 +3,7 @@ import os
 
 from albumentations.pytorch import ToTensorV2
 
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import cv2
 import numpy as np
 import torch
@@ -15,7 +15,7 @@ from mutil_train import unet_train, mutil_train
 from utils import (
     get_testloaders,
     get_loaders_multi,
-cal_std_mean
+    cal_std_mean
 
 )
 import pytorch_lightning as pl
@@ -26,7 +26,7 @@ from argparse import ArgumentParser
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMAGE_HEIGHT = 274  # 1096 originally  0.25
-IMAGE_WIDTH = 484 # 1936 originally 164 290
+IMAGE_WIDTH = 484  # 1936 originally 164 290
 # IMAGE_HEIGHT = 256  # 1096 originally  0.25
 # IMAGE_WIDTH = 256  # 1936 originally
 # print(IMAGE_HEIGHT,IMAGE_WIDTH)
@@ -55,10 +55,10 @@ def add_training_args(parent_parser):
 
 def main():
     pl.seed_everything(1111)
-    mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR,IMAGE_HEIGHT,IMAGE_WIDTH)
+    mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
     train_transform = A.Compose(
         [
-            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH,interpolation=cv2.INTER_NEAREST),
+            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
             A.ColorJitter(brightness=0.3, hue=0.2, p=0.3),
             A.Rotate(limit=5, p=1.0),
             # A.HorizontalFlip(p=0.3),
@@ -75,7 +75,7 @@ def main():
 
     val_transforms = A.Compose(
         [
-            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH,interpolation=cv2.INTER_NEAREST),
+            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
             A.Normalize(
                 mean=mean_value,
                 std=std_value,
@@ -105,7 +105,8 @@ def main():
         seed=1111
     )
 
-    print(len(train_loader),len(val_loader))
+    print('Train images:',len(train_loader))
+    print('Validation  images:', len(val_loader))
 
     if args.mode_size == 32:
         name = 'S'
@@ -113,25 +114,34 @@ def main():
         name = 'XS'
     else:
         name = 'M'
-    ckpt_callback = ModelCheckpoint(
-        monitor='val_Iou',
-        save_top_k=2,
-        mode='max',
-        filename='{epoch:02d}-{val_Iou:.2f}',
-        save_last=True
+    if args.model != 'Unet':
+        ckpt_callback = ModelCheckpoint(
+            monitor='val_Iou',
+            save_top_k=2,
+            mode='max',
+            filename='{Unetppepoch:02d}-{val_Iou:.2f}',
+            save_last=True
 
-    )
-    # logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'))
+        )
+    else:
+
+        ckpt_callback = ModelCheckpoint(
+            monitor='val_Iou',
+            save_top_k=2,
+            mode='max',
+            filename='{epoch:02d}-{val_Iou:.2f}',
+            save_last=True
+
+        )
 
     path = 'F:\semantic_segmentation_unet\clinic_exper\epoch=179-val_Iou=0.62.ckpt'
-    print(args.Continue)
-    if args.Continue==True:
+    if args.Continue == True:
 
-        args.max_epochs *=3
+        args.max_epochs *= 3
         trainer = pl.Trainer.from_argparse_args(args, resume_from_checkpoint=path, check_val_every_n_epoch=3,
                                                 log_every_n_steps=5,
                                                 callbacks=[ckpt_callback])
-        print('Continue train from %s'.format({path}) )
+        print('Continue train from %s'.format({path}))
     else:
         trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3,
                                                 log_every_n_steps=5,
@@ -148,8 +158,7 @@ def test():
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
             A.Normalize(
-                # mean=[0.0, 0.0, 0.0],
-                # std=[1.0, 1.0, 1.0],
+
                 mean=mean_v,
                 std=std_v,
                 # max_pixel_value=255.0,
@@ -170,15 +179,17 @@ def test():
                                   4,
                                   pin_memory=True, )
     logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
-    model = mutil_train.load_from_checkpoint(r'clinic_exper/epoch=398-val_Iou=0.87_clinic_continue274484.ckpt', hparams=vars(args))
+    model = mutil_train.load_from_checkpoint(r'model_pixel/epoch=143-val_Iou=0.74_274484.ckpt',
+                                             hparams=vars(args))
     trainer.test(model, test_loader)
+
 
 def infer_multi(model):
     model = mutil_train.load_from_checkpoint(model)
-    mean_v,std_v=cal_std_mean(TRAIN_IMG_DIR,IMAGE_HEIGHT,IMAGE_WIDTH)
+    mean_v, std_v = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
     infer_xform = A.Compose(
         [
-            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH,interpolation=cv2.INTER_NEAREST),
+            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
             A.Normalize(
                 # mean=[0.0, 0.0, 0.0],
                 # std=[1.0, 1.0, 1.0],
@@ -196,15 +207,15 @@ def infer_multi(model):
     videos = ['.\\video\\breast.avi']
     # videos = glob.glob('./video/clinical/*.avi')
     for video_path in videos:
-    # video_path = './video/c4.avi'
+        # video_path = './video/c4.avi'
         cap = cv2.VideoCapture(video_path)
         total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
         print(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        name = 'new_dice_mask_'+video_path.split('\\')[-1]
-        out_path = os.path.join('./video/',name)
+        name = 'new_dice_mask_' + video_path.split('\\')[-1]
+        out_path = os.path.join('./video/', name)
         print(out_path)
-        out = cv2.VideoWriter(out_path, codec,5, frameSize_s)
+        out = cv2.VideoWriter(out_path, codec, 5, frameSize_s)
         with torch.no_grad():
 
             with tqdm(total=total_frames) as pbar:
@@ -214,7 +225,7 @@ def infer_multi(model):
                     if ret:
                         # print(frame.shape)
                         pbar.update(1)
-                        frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         input = frame
                         # resize_xform = A.Compose(
                         #     [
@@ -235,9 +246,9 @@ def infer_multi(model):
                         img = np.stack([pred[0] for _ in range(3)], axis=-1)
                         img = mapping_color(img)
                         # temp = np.array(torch.movedim(x[0].cpu(), 0, 2) * 255)
-                        temp = cv2.resize(frame,(IMAGE_HEIGHT,IMAGE_WIDTH))
+                        temp = cv2.resize(frame, (IMAGE_HEIGHT, IMAGE_WIDTH))
                         concat = np.hstack([img, temp]).astype(np.uint8)
-                        concat = cv2.cvtColor(concat,cv2.COLOR_BGR2RGB)
+                        concat = cv2.cvtColor(concat, cv2.COLOR_BGR2RGB)
                         # concat[...,0],concat[...,2]= concat[...,2],concat[...,0]
                         # print(concat.shape)
                         # concat = cv2.cvtColor(concat,cv2.COLOR_BGR2RGB)
@@ -250,6 +261,7 @@ def infer_multi(model):
                         break
             cap.release()
             out.release()
+
 
 def mapping_color(img):
     '''
@@ -267,16 +279,4 @@ def mapping_color(img):
 
 
 if __name__ == "__main__":
-    # modelslist = []
-    # for root, dirs, files in os.walk(r".\lightning_logs"):
-    #     for file in files:
-    #         if file.endswith('.ckpt'):
-    #             modelslist.append(os.path.join(root, file))
-    # print(modelslist)
-    # print(modelslist[-3])
-    #
-    # infer(modelslist[-3], './testdata')
-    # model = './epoch=95-val_Iou=0.60.ckpt'
-    # model = './dice.ckpt'
-    # infer_multi(model)
-    test()
+    main()

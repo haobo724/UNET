@@ -31,7 +31,9 @@ IMAGE_WIDTH = 484  # 1936 originally
 PIN_MEMORY = True
 LOAD_MODEL = False
 TEST_DIR = 'data/test_set/'
-mean_value, std_value = cal_std_mean(TEST_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
+TRAIN_IMG_DIR = "data/clinic/"
+
+mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 
 
 def add_training_args(parent_parser):
@@ -61,7 +63,7 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
     mask_sum = []
     img_sum = []
     for mask in filename_mask:
-        mask_img = cv2.imread(mask, 0)
+        mask_img = cv2.imread(mask)[...,0]
         mask_sum.append(mask_img)
     mask_sum = np.array(mask_sum)
     # test=torch.load(models)
@@ -115,10 +117,12 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
             img_sum.append(preds)
     img_sum = np.array(img_sum)
     # assert np.max(img_sum) == np.max(mask_sum)
+    print(img_sum.shape,mask_sum.shape)
     assert np.min(img_sum) == np.min(mask_sum)
+
     eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), mask_sum, img_sum)
     print('indi IoU:', calculate_IoU(eval_mat))
-    print('IoU:', np.mean(calculate_IoU(eval_mat)))
+    print('IoU:', np.mean(calculate_IoU(eval_mat)[1:]))
     print('acc:', calculate_acc(eval_mat))
     std_acc, std_iou, var_acc, var_iou = single_metric(img_sum, mask_sum, sufix=sufix, post=post)
     return np.mean(calculate_IoU(eval_mat)), calculate_acc(eval_mat), std_acc, std_iou, var_acc, var_iou

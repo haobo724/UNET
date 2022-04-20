@@ -228,6 +228,7 @@ def get_testloaders(test_dir,
                     num_workers,
                     pin_memory=True, ):
     X = glob.glob(r'testdata\*.jpg')
+    X = X+glob.glob(r'testdata\*.PNG')
     y = glob.glob(r'testdata\*.jpg')
     val_img = []
     val_mask = []
