@@ -32,6 +32,7 @@ PIN_MEMORY = True
 LOAD_MODEL = False
 TEST_DIR = 'data/test_set/'
 TRAIN_IMG_DIR = "data/clinic/"
+TRAIN_IMG_DIR = "clinic_old/"
 
 mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 

@@ -198,7 +198,11 @@ class UNet_PP(nn.Module):
 
         for up ,x_0 in zip(self.ups,x_list_revers):
             x_1 = self.up(xl_0)
+            if x_0.shape != x_1.shape:
+                # x = TF.resize(x, size=skip_connection.shape[2:])
+                x_1 = torch.nn.functional.interpolate(x_1, size=x_0.shape[2:])
             x_out = up(torch.cat([x_0, x_1], 1))
+
             xl_0=x_out
         #
         # x3_1 = self.up(x4_0)

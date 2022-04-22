@@ -158,7 +158,7 @@ class mutil_train(unet_train):
         self.loss = nn.CrossEntropyLoss()
         self.iou = pl.metrics.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
         if hparams['model'] != 'Unet':
-            self.model = UNet_PP(num_classes=1, input_channels=3).cuda()
+            self.model = UNet_PP(num_classes=3, input_channels=3).cuda()
             print('[INFO] Use Unet++')
         else:
             self.model = UNET_S(in_channels=3, out_channels=3).cuda()
