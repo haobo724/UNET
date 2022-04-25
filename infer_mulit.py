@@ -19,20 +19,18 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import PIL.Image as Image
 import torchvision
-from train import unet_train, mutil_train
+from train import  mutil_train
 from model import UNET
 from matplotlib import pyplot as plt
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 4
-NUM_EPOCHS = 50
 NUM_WORKERS = 0
-IMAGE_HEIGHT = 274  # 1096 originally  0.25
-IMAGE_WIDTH = 484  # 1936 originally
+IMAGE_HEIGHT = 256  # 1096 originally  0.25
+IMAGE_WIDTH = 448  # 1936 originally
 PIN_MEMORY = True
 LOAD_MODEL = False
 TEST_DIR = 'data/test_set/'
 TRAIN_IMG_DIR = "data/clinic/"
-TRAIN_IMG_DIR = "clinic_old/"
+# TRAIN_IMG_DIR = "clinic_old/"
 
 mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 
@@ -67,9 +65,7 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
         mask_img = cv2.imread(mask)[...,0]
         mask_sum.append(mask_img)
     mask_sum = np.array(mask_sum)
-    # test=torch.load(models)
-    # mode_size=test['state_dict']['model.ups.0.weight'].size()[0]/16
-    # models['hyper_parameters'][0].update({"mode_size": int(mode_size)})
+
     parser = ArgumentParser()
     parser = add_training_args(parser)
     args = parser.parse_args()
@@ -182,7 +178,7 @@ if __name__ == "__main__":
 
     '''
     modelslist = []
-    for root, dirs, files in os.walk(r"model_pixel"):
+    for root, dirs, files in os.walk(r"unet——variant"):
         for file in files:
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+from model_experiment import UNET_res,Resnet_Unet
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -73,7 +73,7 @@ class UNET(nn.Module):
 
 class UNET_S(UNET):
     def __init__(
-            self, in_channels=3, out_channels=1, features=[32, 64, 128, 256]):
+            self, in_channels=3, out_channels=3, features=[32, 64, 128, 256]):
         super(UNET, self).__init__()
         self.ups = nn.ModuleList()
         self.downs = nn.ModuleList()
@@ -82,7 +82,7 @@ class UNET_S(UNET):
 
         # Down part of UNET
         for feature in features:
-            self.downs.append(DoubleConv(in_channels, feature))
+            self.downs.append(Residual(in_channels, feature, use_1x1conv=True))
             self.pools.append(nn.MaxPool2d(kernel_size=2, stride=2))
             in_channels = feature
 
@@ -143,6 +143,29 @@ class VGGBlock(nn.Module):
         return out
 
 
+class Residual(nn.Module):
+    def __init__(self, in_channels, out_channels, use_1x1conv=False, stride=1):
+        super(Residual, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, stride=stride)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        # 1x1conv来升维
+        if use_1x1conv:
+            self.conv3 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride)
+        else:
+            self.conv3 = None
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, X):
+        Y = self.relu(self.bn1(self.conv1(X)))
+        Y = self.bn2(self.conv2(Y))
+        # 1x1conv对浅层输入的X升维
+        if self.conv3:
+            X = self.conv3(X)
+        return self.relu(Y + X)
+
+
 class UNet_PP(nn.Module):
     def __init__(self, num_classes, input_channels=3, **kwargs):
         super().__init__()
@@ -155,18 +178,17 @@ class UNet_PP(nn.Module):
         self.downs = nn.ModuleList()
         self.ups = nn.ModuleList()
 
-
         for channel in nb_filter:
-            self.downs.append(VGGBlock(input_channels, channel,channel))
+            self.downs.append(VGGBlock(input_channels, channel, channel))
             input_channels = channel
         # self.conv0_0 = VGGBlock(input_channels, nb_filter[0], nb_filter[0])
         # self.conv1_0 = VGGBlock(nb_filter[0], nb_filter[1], nb_filter[1])
         # self.conv2_0 = VGGBlock(nb_filter[1], nb_filter[2], nb_filter[2])
         # self.conv3_0 = VGGBlock(nb_filter[2], nb_filter[3], nb_filter[3])
         # self.conv4_0 = VGGBlock(nb_filter[3], nb_filter[4], nb_filter[4])
-        nb_filter_revers=list(reversed(nb_filter))[:-1]
+        nb_filter_revers = list(reversed(nb_filter))[:-1]
         for channel in nb_filter_revers:
-            self.ups.append(VGGBlock( channel+channel//2, channel//2, channel//2 ))
+            self.ups.append(VGGBlock(channel + channel // 2, channel // 2, channel // 2))
         #
         # self.conv3_1 = VGGBlock(nb_filter[3] + nb_filter[4], nb_filter[3], nb_filter[3])
         # self.conv2_2 = VGGBlock(nb_filter[2] + nb_filter[3], nb_filter[2], nb_filter[2])
@@ -177,33 +199,33 @@ class UNet_PP(nn.Module):
 
     def forward(self, input):
         x = input
-        i =0
-        x_list=[]
+        i = 0
+        x_list = []
         for down in self.downs:
-            if i >0:
-                x= down(self.pool(x))
+            if i > 0:
+                x = down(self.pool(x))
                 x_list.append(x)
             else:
-                x=down(x)
+                x = down(x)
                 x_list.append(x)
-            i+=1
+            i += 1
 
         # x0_0 = self.conv0_0(input)
         # x1_0 = self.conv1_0(self.pool(x0_0))
         # x2_0 = self.conv2_0(self.pool(x1_0))
         # x3_0 = self.conv3_0(self.pool(x2_0))
         # x4_0 = self.conv4_0(self.pool(x3_0))
-        xl_0=x_list[-1]
-        x_list_revers=list(reversed(x_list))[1:]
+        xl_0 = x_list[-1]
+        x_list_revers = list(reversed(x_list))[1:]
 
-        for up ,x_0 in zip(self.ups,x_list_revers):
+        for up, x_0 in zip(self.ups, x_list_revers):
             x_1 = self.up(xl_0)
             if x_0.shape != x_1.shape:
                 # x = TF.resize(x, size=skip_connection.shape[2:])
                 x_1 = torch.nn.functional.interpolate(x_1, size=x_0.shape[2:])
             x_out = up(torch.cat([x_0, x_1], 1))
 
-            xl_0=x_out
+            xl_0 = x_out
         #
         # x3_1 = self.up(x4_0)
         #
@@ -224,9 +246,9 @@ class UNet_PP(nn.Module):
 
 
 def test():
-    x = torch.randn((3, 1, 480, 640))
+    x = torch.randn((3, 3, 480, 640))
     # model = UNET(in_channels=1, out_channels=1)
-    model = UNet_PP(num_classes=3, input_channels=1)
+    model = UNET_S(in_channels=3, out_channels=3)
     preds = model(x)
     print(preds.shape)
     assert preds.shape == x.shape
