@@ -1,6 +1,4 @@
 from argparse import ArgumentParser
-from torchvision.utils import draw_segmentation_masks
-
 import numpy as np
 import torchmetrics
 from matplotlib import pyplot as plt
@@ -14,7 +12,7 @@ import torch.nn.functional as F
 import segmentation_models_pytorch as smp
 
 
-def mapping_color(img):
+def mapping_color_tensor(img):
     '''
     自己写的，速度快不少，但要自己规定colormap，也可以把制定colormap拿出来单独用randint做，
     但是不能保证一个series里每次运行生成的colormap都一样，或许可以用种子点？
@@ -39,17 +37,16 @@ class mutil_train(pl.LightningModule):
         super().__init__()
         self.hparams.__init__(hparams)
         self.loss = nn.CrossEntropyLoss()
-        self.iou = pl.metrics.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
+        self.iou = torchmetrics.classification.iou.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
         if hparams['model'] != 'Unet':
             self.model = UNet_PP(num_classes=3, input_channels=3).cuda()
             print('[INFO] Use Unet++')
         else:
-            # self.model = UNET_S(in_channels=3, out_channels=3,features=[64, 128, 256, 512]).cuda()
+            # self.model = UNET_S(in_channels=3, out_channels=3).cuda()
             self.model = Resnet_Unet().cuda()
             # self.model = smp.Unet(
-            #     encoder_name='resnet50',
-            #     encoder_depth=5,
-            #     decoder_channels=[64, 256, 512, 1024],
+            #     # encoder_depth=4,
+            #     # decoder_channels=[512,256, 128, 64,32],
             #    in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
             #     classes=3,  # model output channels (number of classes in your dataset)
             # ).cuda()
@@ -103,8 +100,7 @@ class mutil_train(pl.LightningModule):
         self.log("IOU0:", RS_IOU[0], prog_bar=True)
         self.log("IOU1:", RS_IOU[1], prog_bar=True)
         self.log("IOU2:", RS_IOU[2], prog_bar=True)
-        # pred_imgs = mapping_color(pred.cpu())y
-        # label_imgs = mapping_color(y.float().cpu())
+
 
         torchvision.utils.save_image(torchvision.utils.make_grid(pred.unsqueeze(1),nrow=self.hparams['batch_size'],normalize=True), f"{folder}/pred_{batch_idx}.png")
         torchvision.utils.save_image(torchvision.utils.make_grid(y.unsqueeze(1).float(),nrow=self.hparams['batch_size'],normalize=True), f"{folder}/label_{batch_idx}.png")
@@ -126,6 +122,19 @@ class mutil_train(pl.LightningModule):
     def test_step(self, batch, batch_idx, dataset_idx=None):
         folder = "saved_images/"
 
+        def mapping_color(img):
+            '''
+            自己写的，速度快不少，但要自己规定colormap，也可以把制定colormap拿出来单独用randint做，
+            但是不能保证一个series里每次运行生成的colormap都一样，或许可以用种子点？
+            反正类少还是可以考虑用这个
+                    '''
+            color_map = [[247, 251, 255], [171, 207, 209], [55, 135, 192]]
+            for label in range(3):
+                cord_1 = np.where(img[..., 0] == label)
+                img[cord_1[0], cord_1[1], 0] = color_map[label][0]
+                img[cord_1[0], cord_1[1], 1] = color_map[label][1]
+                img[cord_1[0], cord_1[1], 2] = color_map[label][2]
+            return img.astype(int)
         x, y = batch
         y_hat = self(x)
         preds = torch.softmax(y_hat, dim=1)

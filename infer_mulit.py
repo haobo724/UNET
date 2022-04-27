@@ -19,20 +19,19 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import PIL.Image as Image
 import torchvision
-from train import  mutil_train
+from train import mutil_train
 from model import UNET
 from matplotlib import pyplot as plt
+
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 0
-IMAGE_HEIGHT = 256  # 1096 originally  0.25
-IMAGE_WIDTH = 448  # 1936 originally
-PIN_MEMORY = True
-LOAD_MODEL = False
-TEST_DIR = 'data/test_set/'
-TRAIN_IMG_DIR = "data/clinic/"
-# TRAIN_IMG_DIR = "clinic_old/"
 
-mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
+PIN_MEMORY = True
+TEST_DIR = 'data/test_set'
+TEST_MASK_DIR = 'data/test_set_mask'
+
+
+# TRAIN_IMG_DIR = "clinic_old/"
 
 
 def add_training_args(parent_parser):
@@ -46,23 +45,35 @@ def add_training_args(parent_parser):
     return parser
 
 
-
-
 def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
+    IMAGE_HEIGHT = 256  # 1096 originally  0.25
+    IMAGE_WIDTH = 448  # 1936 originally
+    TRAIN_IMG_DIR = "data/clinic/"
+
+    if 'mixed' in models:
+        TRAIN_IMG_DIR = "data/mixed_set/"
+
+    elif 'elbows' in models:
+        TRAIN_IMG_DIR = "data/elbows/"
+        # mask_dir = 'data/elbows_mask'
+        # img_dir = 'data/elbows'
+    elif 'eighth' in models:
+        IMAGE_HEIGHT = 274 // 8  # 1096 originally  0.25
+        IMAGE_WIDTH = 484 // 8  # 1936 originally
+    temp_flag = True
+    if temp_flag:
+        mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
+    else:
+        mean_value, std_value = [0, 0, 0], [1, 1, 1]
     if img_dir is None or models is None:
         ValueError('raw_dir or model is missing')
     filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.tiff")))
     filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
-    # X = glob.glob('./data/all_images/*.jpg')
-    # y = glob.glob('./data/all_masks/*.jpg')
-    # seed = models.split('_')[-1][:4]
-    # print('seed:', seed)
-    # _, filename_img, _, filename_mask = model_selection.train_test_split(X, y, test_size=0.25, random_state=int(seed))
 
     mask_sum = []
     img_sum = []
     for mask in filename_mask:
-        mask_img = cv2.imread(mask)[...,0]
+        mask_img = cv2.imread(mask)[..., 0]
         mask_sum.append(mask_img)
     mask_sum = np.array(mask_sum)
 
@@ -114,13 +125,14 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
             img_sum.append(preds)
     img_sum = np.array(img_sum)
     # assert np.max(img_sum) == np.max(mask_sum)
-    print(img_sum.shape,mask_sum.shape)
     assert np.min(img_sum) == np.min(mask_sum)
 
     eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), mask_sum, img_sum)
     print('indi IoU:', calculate_IoU(eval_mat))
     print('IoU:', np.mean(calculate_IoU(eval_mat)[1:]))
-    print('acc:', calculate_acc(eval_mat))
+    print('-' * 20)
+
+    # print('acc:', calculate_acc(eval_mat))
     std_acc, std_iou, var_acc, var_iou = single_metric(img_sum, mask_sum, sufix=sufix, post=post)
     return np.mean(calculate_IoU(eval_mat)), calculate_acc(eval_mat), std_acc, std_iou, var_acc, var_iou
 
@@ -152,7 +164,6 @@ def single_metric(preds, masks, sufix, post=True):
     iou, acc = [], []
     for pred, mask in zip(preds, masks):
         eval_mat = calculate_eval_matrix(2, mask, pred)
-        # print(calculate_IoU(eval_mat))
         iou.append(np.mean(calculate_IoU(eval_mat)))
         acc.append(calculate_acc(eval_mat))
     std_iou = np.std(iou, ddof=1)
@@ -164,11 +175,9 @@ def single_metric(preds, masks, sufix, post=True):
                               'var_acc': var_acc.tolist(), }, index=[0])
     dataframe = pd.concat([data, dataframe])
     dataframe.to_csv(f"{sufix}.csv", index=True, sep=',')
-    print(std_acc, std_iou, var_acc, var_iou)
+    # print(std_acc, std_iou, var_acc, var_iou)
     print('-' * 20)
     return std_acc, std_iou, var_acc, var_iou
-
-
 
 
 if __name__ == "__main__":
@@ -178,7 +187,7 @@ if __name__ == "__main__":
 
     '''
     modelslist = []
-    for root, dirs, files in os.walk(r"unet——variant"):
+    for root, dirs, files in os.walk(r"model_pixel"):
         for file in files:
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))
@@ -194,15 +203,15 @@ if __name__ == "__main__":
     for i in range(len(modelslist)):
         # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
         sufix = modelslist[i].split('\\')[-1]
-        print(modelslist[i],':')
-        i, a, std_acc, std_iou, var_acc, var_iou = metrics(modelslist[i], './data/test_set', './data/test_set_mask',
+        print(modelslist[i], ':')
+        i, a, std_acc, std_iou, var_acc, var_iou = metrics(modelslist[i], TEST_DIR, TEST_MASK_DIR,
                                                            sufix=sufix, post=False)
-        iou.append(i)
-        acc.append(a)
-        std_accs.append(std_acc)
-        std_ious.append(std_iou)
-        var_accs.append(var_acc)
-        var_ious.append(var_iou)
+        # iou.append(i)
+        # acc.append(a)
+        # std_accs.append(std_acc)
+        # std_ious.append(std_iou)
+        # var_accs.append(var_acc)
+        # var_ious.append(var_iou)
     # print('iou', np.array(iou).mean())
     # print('acc', np.array(acc).mean())
     # print('std_accs', np.array(std_accs).mean())

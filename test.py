@@ -56,7 +56,7 @@ def test():
                                   4,
                                   pin_memory=True, )
     logging.info(f'Manual logging starts. Model version: {trainer.logger.version}')
-    model = mutil_train.load_from_checkpoint(r'unet——variant/epoch=191-val_Iou=0.78.ckpt',
+    model = mutil_train.load_from_checkpoint(r'model_pixel/self—res——epoch=125-val_Iou=0.75.ckpt',
                                              hparams=vars(args))
     trainer.test(model, test_loader)
 

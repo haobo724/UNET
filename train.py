@@ -27,9 +27,10 @@ IMAGE_WIDTH = 448  # 1936 originally 164 290
 # IMAGE_WIDTH = 256  # 1936 originally
 # print(IMAGE_HEIGHT,IMAGE_WIDTH)
 PIN_MEMORY = True
-TRAIN_IMG_DIR = "data/clinic/"
-TRAIN_MASK_DIR = "data/clinic_mask/"
-
+# TRAIN_IMG_DIR = "data/clinic/"
+# TRAIN_MASK_DIR = "data/clinic_mask/"
+TRAIN_IMG_DIR = "data/mixed_set/"
+TRAIN_MASK_DIR = "data/mixed_set_mask/"
 VAL_IMG_DIR = TRAIN_IMG_DIR
 VAL_MASK_DIR = TRAIN_MASK_DIR
 test_dir = r"testdata/"
@@ -138,8 +139,7 @@ def infer_multi(model):
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
             A.Normalize(
-                # mean=[0.0, 0.0, 0.0],
-                # std=[1.0, 1.0, 1.0],
+
                 mean=mean_v,
                 std=std_v,
                 # max_pixel_value=255.0,
