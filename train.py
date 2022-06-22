@@ -1,3 +1,4 @@
+import glob
 import os
 
 from albumentations.pytorch import ToTensorV2
@@ -131,9 +132,20 @@ def main():
 
     print('THE END')
 
+def test():
+    img = cv2.imread(r'UNET_architecture.png')
+    cv2.namedWindow('test')
+    cv2.imshow('test',img)
+    cv2.waitKey()
 
 def infer_multi(model):
-    model = mutil_train.load_from_checkpoint(model)
+    parser = ArgumentParser()
+    parser = add_training_args(parser)
+    parser = pl.Trainer.add_argparse_args(parser)
+    parser = mutil_train.add_model_specific_args(parser)
+    args = parser.parse_args()
+
+    model = mutil_train.load_from_checkpoint(model,hparams=vars(args))
     mean_v, std_v = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
     infer_xform = A.Compose(
         [
@@ -149,20 +161,20 @@ def infer_multi(model):
     )
 
     codec = cv2.VideoWriter_fourcc(*'MJPG')
-    frameSize_s = (512, 256)  # 指定窗口大小
+    frameSize_s = (448, 256)  # 指定窗口大小
 
-    videos = ['.\\video\\breast.avi']
-    # videos = glob.glob('./video/clinical/*.avi')
+    # videos = ['.\\video\\breast.avi']
+    videos = glob.glob('./video/clinical/*.avi')
     for video_path in videos:
         # video_path = './video/c4.avi'
         cap = cv2.VideoCapture(video_path)
         total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
         print(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        name = 'new_dice_mask_' + video_path.split('\\')[-1]
-        out_path = os.path.join('./video/', name)
+        name = 'output_' + video_path.split('\\')[-1]
+        out_path = os.path.join('./video/output/', name)
         print(out_path)
-        out = cv2.VideoWriter(out_path, codec, 5, frameSize_s)
+        out = cv2.VideoWriter(out_path, codec, 15, frameSize_s)
         with torch.no_grad():
 
             with tqdm(total=total_frames) as pbar:
@@ -173,6 +185,9 @@ def infer_multi(model):
                         # print(frame.shape)
                         pbar.update(1)
                         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+                        # cv2.imshow('test2', frame)
+                        # cv2.waitKey(15)
                         input = frame
                         # resize_xform = A.Compose(
                         #     [
@@ -193,14 +208,14 @@ def infer_multi(model):
                         img = np.stack([pred[0] for _ in range(3)], axis=-1)
                         img = mapping_color(img)
                         # temp = np.array(torch.movedim(x[0].cpu(), 0, 2) * 255)
-                        temp = cv2.resize(frame, (IMAGE_HEIGHT, IMAGE_WIDTH))
+                        temp = cv2.resize(frame, ( IMAGE_WIDTH,IMAGE_HEIGHT))
                         concat = np.hstack([img, temp]).astype(np.uint8)
                         concat = cv2.cvtColor(concat, cv2.COLOR_BGR2RGB)
                         # concat[...,0],concat[...,2]= concat[...,2],concat[...,0]
                         # print(concat.shape)
-                        # concat = cv2.cvtColor(concat,cv2.COLOR_BGR2RGB)
-                        # cv2.imshow('test',concat)
-                        # cv2.waitKey(15)
+                        concat = cv2.cvtColor(concat,cv2.COLOR_BGR2RGB)
+                        cv2.imshow('test',concat)
+                        cv2.waitKey(15)
                         out.write(concat)
                     else:
                         break
@@ -226,4 +241,6 @@ def mapping_color(img):
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    test()
+    infer_multi(r'F:\semantic_segmentation_unet\resnet\res34epoch=191-val_Iou=0.78.ckpt')

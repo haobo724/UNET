@@ -43,13 +43,13 @@ class mutil_train(pl.LightningModule):
             print('[INFO] Use Unet++')
         else:
             # self.model = UNET_S(in_channels=3, out_channels=3).cuda()
-            self.model = Resnet_Unet().cuda()
-            # self.model = smp.Unet(
-            #     # encoder_depth=4,
-            #     # decoder_channels=[512,256, 128, 64,32],
-            #    in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-            #     classes=3,  # model output channels (number of classes in your dataset)
-            # ).cuda()
+            # self.model = Resnet_Unet().cuda()
+            self.model = smp.Unet(
+                # encoder_depth=4,
+                # decoder_channels=[512,256, 128, 64,32],
+               in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                classes=3,  # model output channels (number of classes in your dataset)
+            ).cuda()
     def get_model_info(self):
         try:
             name=self.model.name
