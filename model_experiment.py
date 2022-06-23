@@ -155,7 +155,9 @@ class DecoderBlock(nn.Module):
         x = self.relu2(x)
         return x
 
+
 import torchvision.models as models
+
 
 class Resnet_Unet(nn.Module):
     """
@@ -179,7 +181,7 @@ class Resnet_Unet(nn.Module):
         self.firstconv = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=3, bias=False)
         self.firstbn = resnet.bn1
         self.firstrelu = resnet.relu
-        self.firstmaxpool =  nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.firstmaxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.encoder1 = resnet.layer1
         self.encoder2 = resnet.layer2
         self.encoder3 = resnet.layer3
@@ -201,7 +203,6 @@ class Resnet_Unet(nn.Module):
                 nn.Conv2d(in_channels=32, out_channels=3, kernel_size=1),
             )
 
-
     def forward(self, x):
         x = self.firstconv(x)
 
@@ -221,6 +222,7 @@ class Resnet_Unet(nn.Module):
         d4 = self.decoder3(torch.cat([d3, x], dim=1))
 
         return self.final(d4)
+
 
 if __name__ == "__main__":
     inputs = torch.randn((4, 3, 256, 448))

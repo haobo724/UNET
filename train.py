@@ -1,13 +1,16 @@
 import glob
 import os
+from argparse import ArgumentParser
 
-from albumentations.pytorch import ToTensorV2
+import albumentations as A
 import cv2
 import numpy as np
+import pytorch_lightning as pl
 import torch
-import logging
-import albumentations as A
+from albumentations.pytorch import ToTensorV2
+from pytorch_lightning.callbacks import ModelCheckpoint
 from tqdm import tqdm
+
 from mutil_train import mutil_train
 from utils import (
     add_training_args,
@@ -15,10 +18,6 @@ from utils import (
     cal_std_mean
 
 )
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
-
-from argparse import ArgumentParser
 
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -30,8 +29,8 @@ IMAGE_WIDTH = 448  # 1936 originally 164 290
 PIN_MEMORY = True
 # TRAIN_IMG_DIR = "data/clinic/"
 # TRAIN_MASK_DIR = "data/clinic_mask/"
-TRAIN_IMG_DIR = "data/mixed_set/"
-TRAIN_MASK_DIR = "data/mixed_set_mask/"
+TRAIN_IMG_DIR = "data/sym/"
+TRAIN_MASK_DIR = "data/sym_mask/"
 VAL_IMG_DIR = TRAIN_IMG_DIR
 VAL_MASK_DIR = TRAIN_MASK_DIR
 test_dir = r"testdata/"
@@ -90,9 +89,8 @@ def main():
         seed=1111
     )
 
-    print('Train images:', len(train_loader)*args.batch_size)
-    print('Validation  images:', len(val_loader)*args.batch_size)
-
+    print('Train images:', len(train_loader) * args.batch_size)
+    print('Validation  images:', len(val_loader) * args.batch_size)
 
     if args.model != 'Unet':
         ckpt_callback = ModelCheckpoint(
@@ -104,12 +102,12 @@ def main():
 
         )
     else:
-        prefix = model_name+'_'+str(IMAGE_WIDTH)+'_'+str(IMAGE_HEIGHT)
+        prefix = model_name + '_' + str(IMAGE_WIDTH) + '_' + str(IMAGE_HEIGHT)
         ckpt_callback = ModelCheckpoint(
             monitor='val_Iou',
             save_top_k=2,
             mode='max',
-            filename='{}'.format(prefix)+'-{epoch:02d}-{val_Iou:.2f}',
+            filename='{}'.format(prefix) + '-{epoch:02d}-{val_Iou:.2f}',
 
             save_last=True
 
@@ -132,11 +130,13 @@ def main():
 
     print('THE END')
 
+
 def test():
     img = cv2.imread(r'UNET_architecture.png')
     cv2.namedWindow('test')
-    cv2.imshow('test',img)
+    cv2.imshow('test', img)
     cv2.waitKey()
+
 
 def infer_multi(model):
     parser = ArgumentParser()
@@ -145,7 +145,7 @@ def infer_multi(model):
     parser = mutil_train.add_model_specific_args(parser)
     args = parser.parse_args()
 
-    model = mutil_train.load_from_checkpoint(model,hparams=vars(args))
+    model = mutil_train.load_from_checkpoint(model, hparams=vars(args))
     mean_v, std_v = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
     infer_xform = A.Compose(
         [
@@ -164,7 +164,8 @@ def infer_multi(model):
     frameSize_s = (448, 256)  # 指定窗口大小
 
     # videos = ['.\\video\\breast.avi']
-    videos = glob.glob('./video/clinical/*.avi')
+    # videos = glob.glob('./video/clinical/*.avi')
+    videos = glob.glob(r'F:\opencv\socket_demo\top_video/*.mp4')
     for video_path in videos:
         # video_path = './video/c4.avi'
         cap = cv2.VideoCapture(video_path)
@@ -185,7 +186,7 @@ def infer_multi(model):
                         # print(frame.shape)
                         pbar.update(1)
                         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
+                        # frame =np.rot90(frame,-2)
                         # cv2.imshow('test2', frame)
                         # cv2.waitKey(15)
                         input = frame
@@ -208,13 +209,13 @@ def infer_multi(model):
                         img = np.stack([pred[0] for _ in range(3)], axis=-1)
                         img = mapping_color(img)
                         # temp = np.array(torch.movedim(x[0].cpu(), 0, 2) * 255)
-                        temp = cv2.resize(frame, ( IMAGE_WIDTH,IMAGE_HEIGHT))
+                        temp = cv2.resize(frame, (IMAGE_WIDTH, IMAGE_HEIGHT))
                         concat = np.hstack([img, temp]).astype(np.uint8)
                         concat = cv2.cvtColor(concat, cv2.COLOR_BGR2RGB)
                         # concat[...,0],concat[...,2]= concat[...,2],concat[...,0]
                         # print(concat.shape)
-                        concat = cv2.cvtColor(concat,cv2.COLOR_BGR2RGB)
-                        cv2.imshow('test',concat)
+                        concat = cv2.cvtColor(concat, cv2.COLOR_BGR2RGB)
+                        cv2.imshow('test', concat)
                         cv2.waitKey(15)
                         out.write(concat)
                     else:
@@ -243,4 +244,4 @@ def mapping_color(img):
 if __name__ == "__main__":
     # main()
     test()
-    infer_multi(r'F:\semantic_segmentation_unet\resnet\res34epoch=191-val_Iou=0.78.ckpt')
+    infer_multi(r'F:\semantic_segmentation_unet\u-resnet34_448_256-epoch=53-val_Iou=0.88.ckpt')

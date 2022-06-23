@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from model_experiment import UNET_res,Resnet_Unet
+
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):

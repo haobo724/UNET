@@ -1,15 +1,16 @@
-from albumentations.pytorch import ToTensorV2
-import torch
 import logging
-import albumentations as A
+from argparse import ArgumentParser
 
-from mutil_train import  mutil_train
+import albumentations as A
+import pytorch_lightning as pl
+import torch
+from albumentations.pytorch import ToTensorV2
+
+from mutil_train import mutil_train
 from utils import (
     get_testloaders,
     add_training_args
 )
-import pytorch_lightning as pl
-from argparse import ArgumentParser
 
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -59,6 +60,7 @@ def test():
     model = mutil_train.load_from_checkpoint(r'model_pixel/self—res——epoch=125-val_Iou=0.75.ckpt',
                                              hparams=vars(args))
     trainer.test(model, test_loader)
+
 
 if __name__ == "__main__":
     test()

@@ -1,6 +1,7 @@
 import glob
 import os
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import cv2
 import numpy as np
 import torch
@@ -14,7 +15,7 @@ from mutil_train import unet_train
 # from pytorch_lightning.loggers import TensorBoardLogger
 from utils import (
     get_testloaders,
-get_loaders
+    get_loaders
 )
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -29,7 +30,6 @@ IMAGE_HEIGHT = 33  # 1096 originally  0.25
 IMAGE_WIDTH = 58  # 1936 originally
 # print(IMAGE_HEIGHT,IMAGE_WIDTH)
 PIN_MEMORY = True
-
 
 TRAIN_IMG_DIR = "data/all_images/"
 TRAIN_MASK_DIR = "data/all_masks/"
@@ -162,6 +162,7 @@ def test():
     model = unet_train.load_from_checkpoint(r'.\last.ckpt', hparams=vars(args))
     trainer.test(model, test_loader)
 
+
 def infer_multi(model):
     model = unet_train.load_from_checkpoint(model)
     infer_xform = A.Compose(
@@ -188,15 +189,15 @@ def infer_multi(model):
     # video_path = './video/breast.avi'
     videos = glob.glob('./video/clinical/*.avi')
     for video_path in videos:
-    # video_path = './video/c4.avi'
+        # video_path = './video/c4.avi'
         cap = cv2.VideoCapture(video_path)
         total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
         print(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        name = 'mask_'+video_path.split('\\')[-1]
-        out_path = os.path.join('./video/',name)
+        name = 'mask_' + video_path.split('\\')[-1]
+        out_path = os.path.join('./video/', name)
         print(out_path)
-        out = cv2.VideoWriter(out_path, codec,5, frameSize_s)
+        out = cv2.VideoWriter(out_path, codec, 5, frameSize_s)
         with torch.no_grad():
 
             with tqdm(total=total_frames) as pbar:
@@ -206,7 +207,7 @@ def infer_multi(model):
                     if ret:
                         # print(frame.shape)
                         pbar.update(1)
-                        frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         input = frame
                         # resize_xform = A.Compose(
                         #     [
@@ -227,9 +228,9 @@ def infer_multi(model):
                         img = np.stack([pred[0] for _ in range(3)], axis=-1)
                         img = mapping_color(img)
                         # temp = np.array(torch.movedim(x[0].cpu(), 0, 2) * 255)
-                        temp = cv2.resize(frame,(IMAGE_HEIGHT,IMAGE_WIDTH))
+                        temp = cv2.resize(frame, (IMAGE_HEIGHT, IMAGE_WIDTH))
                         concat = np.hstack([img, temp]).astype(np.uint8)
-                        concat = cv2.cvtColor(concat,cv2.COLOR_BGR2RGB)
+                        concat = cv2.cvtColor(concat, cv2.COLOR_BGR2RGB)
                         # concat[...,0],concat[...,2]= concat[...,2],concat[...,0]
                         # print(concat.shape)
                         # concat = cv2.cvtColor(concat,cv2.COLOR_BGR2RGB)
@@ -242,6 +243,8 @@ def infer_multi(model):
                         break
             cap.release()
             out.release()
+
+
 def mapping_color(img):
     '''
     自己写的，速度快不少，但要自己规定colormap，也可以把制定colormap拿出来单独用randint做，

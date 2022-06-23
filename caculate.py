@@ -69,8 +69,8 @@ def calculate_eval_matrix(num_cls, labels, predictions):
     try:
         assert labels.shape == predictions.shape
     except AssertionError:
-        print(labels.shape,predictions.shape)
-        
+        print(labels.shape, predictions.shape)
+
     # convert to same data type
     n_batch = labels.shape[0]
 
@@ -117,7 +117,8 @@ def calculate_acc(eval_mat):
     count_correct = np.diagonal(eval_mat, axis1=0, axis2=1)
     count = np.sum(eval_mat)
     count_correct = np.sum(count_correct, axis=-1)
-    return  count_correct / count
+    return count_correct / count
+
 
 class Accuracy(MeasureBase):
     def __init__(self, class_names, **kwargs):

@@ -1,7 +1,5 @@
 import glob
 import os
-import shutil
-import time
 from argparse import ArgumentParser
 
 import cv2
@@ -9,8 +7,6 @@ import numpy as np
 import pandas as pd
 
 from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
-from sklearn import model_selection
-
 from utils import cal_std_mean
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
@@ -18,10 +14,7 @@ import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import PIL.Image as Image
-import torchvision
 from train import mutil_train
-from model import UNET
-from matplotlib import pyplot as plt
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 0

@@ -1,15 +1,15 @@
 from argparse import ArgumentParser
+
 import numpy as np
-import torchmetrics
-from matplotlib import pyplot as plt
-from monai.losses import DiceLoss
-from model import UNET, UNET_S, UNet_PP, UNET_res, Resnet_Unet
-import torch.nn as nn
-import torchvision, torch
 import pytorch_lightning as pl
-import logging
-import torch.nn.functional as F
 import segmentation_models_pytorch as smp
+import torch
+import torch.nn as nn
+import torchmetrics
+import torchvision
+from matplotlib import pyplot as plt
+
+from model import UNet_PP
 
 
 def mapping_color_tensor(img):
@@ -47,14 +47,15 @@ class mutil_train(pl.LightningModule):
             self.model = smp.Unet(
                 # encoder_depth=4,
                 # decoder_channels=[512,256, 128, 64,32],
-               in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
                 classes=3,  # model output channels (number of classes in your dataset)
             ).cuda()
+
     def get_model_info(self):
         try:
-            name=self.model.name
-        except :
-            name= 'Unet_S'
+            name = self.model.name
+        except:
+            name = 'Unet_S'
         return name
 
     def configure_optimizers(self):
@@ -101,9 +102,12 @@ class mutil_train(pl.LightningModule):
         self.log("IOU1:", RS_IOU[1], prog_bar=True)
         self.log("IOU2:", RS_IOU[2], prog_bar=True)
 
-
-        torchvision.utils.save_image(torchvision.utils.make_grid(pred.unsqueeze(1),nrow=self.hparams['batch_size'],normalize=True), f"{folder}/pred_{batch_idx}.png")
-        torchvision.utils.save_image(torchvision.utils.make_grid(y.unsqueeze(1).float(),nrow=self.hparams['batch_size'],normalize=True), f"{folder}/label_{batch_idx}.png")
+        torchvision.utils.save_image(
+            torchvision.utils.make_grid(pred.unsqueeze(1), nrow=self.hparams['batch_size'], normalize=True),
+            f"{folder}/pred_{batch_idx}.png")
+        torchvision.utils.save_image(
+            torchvision.utils.make_grid(y.unsqueeze(1).float(), nrow=self.hparams['batch_size'], normalize=True),
+            f"{folder}/label_{batch_idx}.png")
 
         return {"val_loss": loss,
                 "iou": (RS_IOU[1] + RS_IOU[2]) / 2, }
@@ -135,6 +139,7 @@ class mutil_train(pl.LightningModule):
                 img[cord_1[0], cord_1[1], 1] = color_map[label][1]
                 img[cord_1[0], cord_1[1], 2] = color_map[label][2]
             return img.astype(int)
+
         x, y = batch
         y_hat = self(x)
         preds = torch.softmax(y_hat, dim=1)

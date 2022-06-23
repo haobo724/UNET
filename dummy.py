@@ -1,7 +1,8 @@
-import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
-import torchvision
 import torch
+import torchvision
+import torchvision.transforms as transforms
+
 img = plt.imread('UNET_architecture.png')
 img_tensor = transforms.ToTensor()(img)
 img_tensor = img_tensor.repeat(10, 1, 1, 1)

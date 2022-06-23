@@ -1,24 +1,23 @@
 import os
 from argparse import ArgumentParser
 
+import albumentations as A
 import torch
-import torchvision
+from albumentations.pytorch import ToTensorV2
 from setuptools import glob
 from sklearn import model_selection
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from dataset import CarvanaDataset, CarvanaDataset_multi, LeafData
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 
 
-def cal_std_mean(TRAIN_IMG_DIR,IMAGE_HEIGHT,IMAGE_WIDTH):
-    augs = A.Compose([A.Resize(height = IMAGE_HEIGHT,
-                           width  = IMAGE_WIDTH),
-        A.Normalize(mean=(0, 0, 0),
-                    std=(1, 1, 1)),
-        ToTensorV2()])
+def cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH):
+    augs = A.Compose([A.Resize(height=IMAGE_HEIGHT,
+                               width=IMAGE_WIDTH),
+                      A.Normalize(mean=(0, 0, 0),
+                                  std=(1, 1, 1)),
+                      ToTensorV2()])
     imgs = glob.glob(TRAIN_IMG_DIR + '*.jpg')
     print(imgs)
     image_dataset = LeafData(data=imgs,
@@ -39,20 +38,21 @@ def cal_std_mean(TRAIN_IMG_DIR,IMAGE_HEIGHT,IMAGE_WIDTH):
 
         psum_sq += (inputs ** 2).sum(axis=[0, 2, 3])
     # pixel count
-    count = len(glob.glob(TRAIN_IMG_DIR + '/*.jpg')) * IMAGE_HEIGHT*IMAGE_WIDTH
+    count = len(glob.glob(TRAIN_IMG_DIR + '/*.jpg')) * IMAGE_HEIGHT * IMAGE_WIDTH
     # mean and std
     total_mean = psum / count
     total_var = (psum_sq / count) - (total_mean ** 2)
     total_std = torch.sqrt(total_var)
     torch.cuda.empty_cache()
 
-  #mean: tensor([0.2292, 0.2355, 0.3064])
-  #std:  tensor([0.2448, 0.2450, 0.2833])
+    # mean: tensor([0.2292, 0.2355, 0.3064])
+    # std:  tensor([0.2448, 0.2450, 0.2833])
 
     # output
     print('mean: ' + str(tuple(total_mean)))
     print('std:  ' + str(tuple(total_std)))
-    return total_mean,total_std
+    return total_mean, total_std
+
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
@@ -229,7 +229,7 @@ def get_testloaders(test_dir,
                     num_workers,
                     pin_memory=True, ):
     X = glob.glob(r'testdata\*.jpg')
-    X = X+glob.glob(r'testdata\*.PNG')
+    X = X + glob.glob(r'testdata\*.PNG')
     y = glob.glob(r'testdata\*.jpg')
     val_img = []
     val_mask = []
@@ -267,7 +267,6 @@ def add_training_args(parent_parser):
     parser.add_argument("--Continue", type=bool, default=False)
 
     return parser
-
 
 
 if __name__ == "__main__":

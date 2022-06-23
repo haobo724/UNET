@@ -1,10 +1,9 @@
-import cv2
 import os
 
+import cv2
 import imageio
 import numpy as np
 from PIL import Image
-from sklearn import model_selection
 from torch.utils.data import Dataset
 
 
@@ -62,9 +61,10 @@ class CarvanaDataset_multi(Dataset):
     def __getitem__(self, index):
         img_path = os.path.join(self.image_dir, self.images[index])
         mask_path = os.path.join(self.mask_dir, self.masks[index])
-        image = np.array(imageio.imread(img_path))
+        img = imageio.imread(img_path)
+        image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         # mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
-        mask = cv2.imread(mask_path)[...,0].astype(np.float32)
+        mask = cv2.imread(mask_path)[..., 0].astype(np.float32)
 
         if self.transform is not None:
             augmentations = self.transform(image=image, mask=mask)
@@ -88,7 +88,9 @@ class LeafData(Dataset):
     def __getitem__(self, idx):
         # import
         # path = os.path.join(self.directory, self.data.iloc[idx]['image_id'])
-        image = np.array(imageio.imread(self.data[idx]))
+        img = imageio.imread(self.data[idx])
+        image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # image = np.array(imageio.imread(self.data[idx]))
         # augmentations
         if self.transform is not None:
             image = self.transform(image=image)['image']

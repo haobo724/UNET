@@ -9,8 +9,6 @@ import numpy as np
 import pandas as pd
 
 from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
-from sklearn import model_selection
-
 from utils import cal_std_mean
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
@@ -19,7 +17,7 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import PIL.Image as Image
 import torchvision
-from train import unet_train,mutil_train
+from train import unet_train
 from model import UNET
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -30,7 +28,7 @@ IMAGE_HEIGHT = 274  # 1096 originally  0.25
 IMAGE_WIDTH = 484  # 1936 originally
 PIN_MEMORY = True
 LOAD_MODEL = False
-TEST_DIR='data/test_set'
+TEST_DIR = 'data/test_set'
 mean_value, std_value = cal_std_mean(TEST_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 
 
@@ -137,7 +135,7 @@ def infer(models, raw_dir, sufix):
     print(f'Totally used:{end - curtime} s')
 
 
-def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
+def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
     if img_dir is None or models is None:
         ValueError('raw_dir or model is missing')
     filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.tiff")))
@@ -161,13 +159,13 @@ def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
     parser = add_training_args(parser)
     args = parser.parse_args()
 
-    model = unet_train.load_from_checkpoint(models,hparams=vars(args))
+    model = unet_train.load_from_checkpoint(models, hparams=vars(args))
     infer_xform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.Normalize(
                 mean=mean_value,
-                std= std_value,
+                std=std_value,
                 # max_pixel_value=255.0,
             ),
             ToTensorV2(),
@@ -178,7 +176,7 @@ def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
             input = np.array(Image.open(filename_img[index]), dtype=np.uint8)
             resize_xform = A.Compose(
                 [
-                    A.Resize(height=input.shape[0], width=input.shape[1],interpolation=cv2.INTER_NEAREST),
+                    A.Resize(height=input.shape[0], width=input.shape[1], interpolation=cv2.INTER_NEAREST),
 
                     ToTensorV2(),
                 ],
@@ -206,8 +204,8 @@ def metrics(models, img_dir, mask_dir,sufix='sufix',post=True ):
     print('indi IoU:', calculate_IoU(eval_mat))
     print('IoU:', np.mean(calculate_IoU(eval_mat)))
     print('acc:', calculate_acc(eval_mat))
-    std_acc, std_iou, var_acc, var_iou = single_metric(img_sum, mask_sum, sufix=sufix,post=post)
-    return np.mean(calculate_IoU(eval_mat)), calculate_acc(eval_mat),std_acc, std_iou, var_acc, var_iou
+    std_acc, std_iou, var_acc, var_iou = single_metric(img_sum, mask_sum, sufix=sufix, post=post)
+    return np.mean(calculate_IoU(eval_mat)), calculate_acc(eval_mat), std_acc, std_iou, var_acc, var_iou
 
 
 def post_processing(image):
@@ -227,12 +225,12 @@ def post_processing(image):
     return thresh
 
 
-def single_metric(preds, masks, sufix,post=True):
+def single_metric(preds, masks, sufix, post=True):
     sufix = sufix[:-5]
     if post:
-        sufix = 'post'+sufix
+        sufix = 'post' + sufix
     else:
-        sufix = 'no-post'+sufix
+        sufix = 'no-post' + sufix
 
     iou, acc = [], []
     for pred, mask in zip(preds, masks):
@@ -252,6 +250,7 @@ def single_metric(preds, masks, sufix,post=True):
     print(std_acc, std_iou, var_acc, var_iou)
     print('-' * 20)
     return std_acc, std_iou, var_acc, var_iou
+
 
 class infer_gui():
     def __init__(self, models, size=[64, 128, 256, 512]):
@@ -338,16 +337,17 @@ if __name__ == "__main__":
         # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
         sufix = modelslist[i].split('\\')[-1]
 
-        i ,a,std_acc, std_iou, var_acc, var_iou =metrics(modelslist[i], './data/test_set', './data/test_set_mask', sufix=sufix,post=True)
+        i, a, std_acc, std_iou, var_acc, var_iou = metrics(modelslist[i], './data/test_set', './data/test_set_mask',
+                                                           sufix=sufix, post=True)
         iou.append(i)
         acc.append(a)
         std_accs.append(std_acc)
         std_ious.append(std_iou)
         var_accs.append(var_acc)
         var_ious.append(var_iou)
-    print('iou',np.array(iou).mean())
-    print('acc',np.array(acc).mean())
-    print('std_accs',np.array(std_accs).mean())
-    print('std_ious',np.array(std_ious).mean())
-    print('var_accs',np.array(var_accs).mean())
-    print('var_ious',np.array(var_ious).mean())
+    print('iou', np.array(iou).mean())
+    print('acc', np.array(acc).mean())
+    print('std_accs', np.array(std_accs).mean())
+    print('std_ious', np.array(std_ious).mean())
+    print('var_accs', np.array(var_accs).mean())
+    print('var_ious', np.array(var_ious).mean())
