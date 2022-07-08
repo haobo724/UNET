@@ -12,10 +12,9 @@ from tqdm import tqdm
 # from matplotlib import pyplot as plt
 
 from mutil_train import unet_train
-# from pytorch_lightning.loggers import TensorBoardLogger
 from utils import (
     get_testloaders,
-    get_loaders
+    get_loaders, cal_std_mean
 )
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -26,18 +25,19 @@ from argparse import ArgumentParser
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # IMAGE_HEIGHT = 274  # 1096 originally  0.25
 # IMAGE_WIDTH = 484  # 1936 originally 164 290
-IMAGE_HEIGHT = 33  # 1096 originally  0.25
-IMAGE_WIDTH = 58  # 1936 originally
-# print(IMAGE_HEIGHT,IMAGE_WIDTH)
+IMAGE_HEIGHT = 480  # 1096 originally  0.25
+IMAGE_WIDTH = 640  # 1936 originally
 PIN_MEMORY = True
 
-TRAIN_IMG_DIR = "data/all_images/"
-TRAIN_MASK_DIR = "data/all_masks/"
-VAL_IMG_DIR = "data/all_images/"
-VAL_MASK_DIR = "data/all_masks/"
+TRAIN_IMG_DIR = "data/oldds/all_images/"
+TRAIN_MASK_DIR = "data/oldds/all_masks/"
+VAL_IMG_DIR = "data/oldds/all_images/"
+VAL_MASK_DIR = "data/oldds/all_masks/"
 
 test_dir = r"C:\Users\94836\Desktop\test_data"
 test_maskdir = r"C:\Users\94836\Desktop\test_data"
+
+# mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 
 
 def add_training_args(parent_parser):
@@ -53,6 +53,9 @@ def add_training_args(parent_parser):
 
 
 def main():
+    mean_value =(0.3651, 0.3123, 0.2926)
+    std_value=(0.3383, 0.3004, 0.2771)
+
     pl.seed_everything(1111)
     train_transform = A.Compose(
         [
@@ -62,8 +65,8 @@ def main():
             A.HorizontalFlip(p=0.3),
             A.VerticalFlip(p=0.2),
             A.Normalize(
-                mean=[0.0, 0.0, 0.0],
-                std=[1.0, 1.0, 1.0],
+                mean=mean_value,
+                std=std_value,
 
                 max_pixel_value=255.0,
 
@@ -76,8 +79,8 @@ def main():
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.Normalize(
-                mean=[0.0, 0.0, 0.0],
-                std=[1.0, 1.0, 1.0],
+                mean=mean_value,
+                std=std_value,
 
                 max_pixel_value=255.0,
             ),
@@ -90,7 +93,6 @@ def main():
     parser = unet_train.add_model_specific_args(parser)
     args = parser.parse_args()
 
-    # model = unet_train(hparams=vars(args)).cuda()
     model = unet_train(hparams=vars(args)).cuda()
 
     train_loader, val_loader = get_loaders(
@@ -113,9 +115,9 @@ def main():
         name = 'M'
     ckpt_callback = ModelCheckpoint(
         monitor='val_Iou',
-        save_top_k=2,
+        save_top_k=1,
         mode='max',
-        filename='{epoch:02d}-{val_Iou:.2f}',
+        filename=f'{name}'+'{epoch:02d}-{val_Iou:.2f}',
         save_last=True
 
     )

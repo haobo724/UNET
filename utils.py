@@ -19,7 +19,6 @@ def cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH):
                                   std=(1, 1, 1)),
                       ToTensorV2()])
     imgs = glob.glob(TRAIN_IMG_DIR + '*.jpg')
-    print(imgs)
     image_dataset = LeafData(data=imgs,
                              transform=augs)
     image_loader = DataLoader(image_dataset,
@@ -54,16 +53,6 @@ def cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH):
     return total_mean, total_std
 
 
-def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
-    print("=> Saving checkpoint")
-    torch.save(state, filename)
-
-
-def load_classes(path):
-    # Loads class labels at 'path'
-    fp = open(path, 'r')
-    names = fp.read().split('\n')
-    return list(filter(None, names))  # filter removes empty strings (such as last line)
 
 
 def parse_data_cfg(path):
@@ -83,9 +72,7 @@ def parse_data_cfg(path):
     return options
 
 
-def load_checkpoint(checkpoint, model):
-    print("=> Loading checkpoint")
-    model.load_state_dict(checkpoint["state_dict"])
+
 
 
 def get_loaders(
@@ -100,8 +87,8 @@ def get_loaders(
         pin_memory=True,
         seed=1234
 ):
-    X = glob.glob('./data/all_images/*.jpg')
-    y = glob.glob('./data/all_masks/*.jpg')
+    X = glob.glob('./data/oldds/all_images/*.jpg')
+    y = glob.glob('./data/oldds/all_masks/*.jpg')
     X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.2, random_state=seed)
     train_img = []
     train_mask = []
@@ -270,6 +257,4 @@ def add_training_args(parent_parser):
 
 
 if __name__ == "__main__":
-    TRAIN_IMG_DIR = "data/clinic/"
-
-    cal_std_mean(TRAIN_IMG_DIR)
+    pass

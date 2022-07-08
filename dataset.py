@@ -3,7 +3,6 @@ import os
 import cv2
 import imageio
 import numpy as np
-from PIL import Image
 from torch.utils.data import Dataset
 
 
@@ -26,8 +25,10 @@ class CarvanaDataset(Dataset):
     def __getitem__(self, index):
         img_path = os.path.join(self.image_dir, self.images[index])
         mask_path = os.path.join(self.mask_dir, self.masks[index])
-        image = np.array(Image.open(img_path).convert("RGB"))
-        mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
+        img = imageio.imread(img_path)
+        image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
+        mask = cv2.imread(mask_path)[..., 0].astype(np.float32)
         if np.max(mask) != 1:
             if len(np.unique(mask)) == 2:
                 low, high = np.unique(mask)
