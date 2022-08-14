@@ -1,6 +1,6 @@
 import logging
 from argparse import ArgumentParser
-
+from utils import FocalLoss
 import numpy as np
 import pytorch_lightning as pl
 import segmentation_models_pytorch as smp
@@ -9,9 +9,8 @@ import torch.nn as nn
 import torchmetrics
 import torchvision
 from matplotlib import pyplot as plt
-
-from model import UNet_PP, UNET_S, UNET
-
+from model import UNet_PP, UNET_S, UNET,AttentionUNet
+# from test import AttentionUNet
 
 def mapping_color_tensor(img):
     '''
@@ -32,25 +31,27 @@ def mapping_color_tensor(img):
         return img
     return img.astype(int)
 
-
 class mutil_train(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams.__init__(hparams)
-        self.loss = nn.CrossEntropyLoss()
+        # self.loss = nn.CrossEntropyLoss()
+        self.loss = FocalLoss(gamma=2)
+
         self.iou = torchmetrics.classification.iou.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
         if hparams['model'] != 'Unet':
             self.model = UNet_PP(num_classes=3, input_channels=3).cuda()
             print('[INFO] Use Unet++')
         else:
             # self.model = UNET_S(in_channels=3, out_channels=3).cuda()
-            # self.model = Resnet_Unet().cuda()
-            self.model = smp.Unet(
-                # encoder_depth=4,
-                # decoder_channels=[512,256, 128, 64,32],
-                in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-                classes=3,  # model output channels (number of classes in your dataset)
-            ).cuda()
+            self.model = AttentionUNet(img_ch=3, output_ch=3).cuda()
+            # self.model = smp.Unet(
+            #     # encoder_depth=4,
+            #     # decoder_channels=[512,256, 128, 64,32],
+            #     in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+            #     classes=3,  # model output channels (number of classes in your dataset)
+            #     decoder_attention_type='scse'
+            # ).cuda()
 
     def get_model_info(self):
         try:

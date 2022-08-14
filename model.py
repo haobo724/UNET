@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torchvision
 
 
 class DoubleConv(nn.Module):
@@ -55,10 +56,12 @@ class UNET(nn.Module):
             x = pool(x)
 
         x = self.bottleneck(x)
+        print(x.size())
         skip_connections = skip_connections[::-1]
 
         for idx in range(0, len(self.ups), 2):
             x = self.ups[idx](x)
+            print(x.size())
             skip_connection = skip_connections[idx // 2]
 
             if x.shape != skip_connection.shape:
@@ -174,13 +177,13 @@ class UNET_S_new(UNET):
 
 
 class VGGBlock(nn.Module):
-    def __init__(self, in_channels, middle_channels, out_channels):
+    def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.relu = nn.ReLU(inplace=True)
-        self.conv1 = nn.Conv2d(in_channels, middle_channels, 3, padding=1)
-        self.bn1 = nn.BatchNorm2d(middle_channels)
-        self.conv2 = nn.Conv2d(middle_channels, out_channels, 3, padding=1)
+        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, padding=1)
         self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         out = self.conv1(x)
@@ -217,6 +220,23 @@ class Residual(nn.Module):
         return self.relu(Y + X)
 
 
+class UpConv(nn.Module):
+
+    def __init__(self, in_channels, out_channels):
+        super(UpConv, self).__init__()
+
+        self.up = nn.Sequential(
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        x = self.up(x)
+        return x
+
+
 class UNet_PP(nn.Module):
     def __init__(self, num_classes, input_channels=3, **kwargs):
         super().__init__()
@@ -230,7 +250,7 @@ class UNet_PP(nn.Module):
         self.ups = nn.ModuleList()
 
         for channel in nb_filter:
-            self.downs.append(VGGBlock(input_channels, channel, channel))
+            self.downs.append(VGGBlock(input_channels, channel))
             input_channels = channel
         # self.conv0_0 = VGGBlock(input_channels, nb_filter[0], nb_filter[0])
         # self.conv1_0 = VGGBlock(nb_filter[0], nb_filter[1], nb_filter[1])
@@ -239,7 +259,7 @@ class UNet_PP(nn.Module):
         # self.conv4_0 = VGGBlock(nb_filter[3], nb_filter[4], nb_filter[4])
         nb_filter_revers = list(reversed(nb_filter))[:-1]
         for channel in nb_filter_revers:
-            self.ups.append(VGGBlock(channel + channel // 2, channel // 2, channel // 2))
+            self.ups.append(VGGBlock(channel + channel // 2, channel // 2))
         #
         # self.conv3_1 = VGGBlock(nb_filter[3] + nb_filter[4], nb_filter[3], nb_filter[3])
         # self.conv2_2 = VGGBlock(nb_filter[2] + nb_filter[3], nb_filter[2], nb_filter[2])
@@ -296,12 +316,125 @@ class UNet_PP(nn.Module):
         return output
 
 
+class AttentionBlock(nn.Module):
+    """Attention block with learnable parameters"""
+
+    def __init__(self, F_g, F_l, n_coefficients):
+        """
+        :param F_g: number of feature maps (channels) in previous layer
+        :param F_l: number of feature maps in corresponding encoder layer, transferred via skip connection
+        :param n_coefficients: number of learnable multi-dimensional attention coefficients
+        """
+        super(AttentionBlock, self).__init__()
+
+        self.W_gate = nn.Sequential(
+            nn.Conv2d(F_g, n_coefficients, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(n_coefficients)
+        )
+
+        self.W_x = nn.Sequential(
+            nn.Conv2d(F_l, n_coefficients, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(n_coefficients)
+        )
+
+        self.psi = nn.Sequential(
+            nn.Conv2d(n_coefficients, 1, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(1),
+            nn.Sigmoid()
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, gate, skip_connection):
+        """
+        :param gate: gating signal from previous layer
+        :param skip_connection: activation from corresponding encoder layer
+        :return: output activations
+        """
+        g1 = self.W_gate(gate)
+        x1 = self.W_x(skip_connection)
+        psi = self.relu(g1 + x1)
+        psi = self.psi(psi)
+        out = skip_connection * psi
+        return out
+
+
+class AttentionUNet(nn.Module):
+
+    def __init__(self, img_ch=3, output_ch=1):
+        super(AttentionUNet, self).__init__()
+
+        self.MaxPool = nn.MaxPool2d(kernel_size=2, stride=2)
+        resnet = torchvision.models.resnet34()
+        self.Conv1 = DoubleConv(img_ch, 64)
+        self.Conv2 = resnet.layer2
+        self.Conv3 = resnet.layer3
+        self.Conv4 = resnet.layer4
+
+
+
+        self.Up4 = UpConv(512, 256)
+        self.Att4 = AttentionBlock(F_g=256, F_l=256, n_coefficients=128)
+        self.UpConv4 = DoubleConv(512, 256)
+
+        self.Up3 = UpConv(256, 128)
+        self.Att3 = AttentionBlock(F_g=128, F_l=128, n_coefficients=64)
+        self.UpConv3 = DoubleConv(256, 128)
+
+        self.Up2 = UpConv(128, 64)
+        self.Att2 = AttentionBlock(F_g=64, F_l=64, n_coefficients=32)
+        self.UpConv2 = DoubleConv(128, 64)
+
+        self.Conv = nn.Conv2d(64, output_ch, kernel_size=1, stride=1, padding=0)
+
+    def require_encoder_grad(self, requires_grad):
+        blocks = [self.Conv2,
+                  self.Conv3,
+                  self.Conv4]
+
+        for block in blocks:
+            for p in block.parameters():
+                p.requires_grad = requires_grad
+
+    def forward(self, x):
+        """
+        e : encoder layers
+        d : decoder layers
+        s : skip-connections from encoder layers to decoder layers
+        """
+        e1 = self.Conv1(x)
+
+        e2 = self.Conv2(e1)
+        e3 = self.Conv3(e2)
+        e4 = self.Conv4(e3)
+
+
+
+        d4 = self.Up4(e4)
+        s3 = self.Att4(gate=d4, skip_connection=e3)
+        d4 = torch.cat((s3, d4), dim=1)
+        d4 = self.UpConv4(d4)
+
+        d3 = self.Up3(d4)
+        s2 = self.Att3(gate=d3, skip_connection=e2)
+        d3 = torch.cat((s2, d3), dim=1)
+        d3 = self.UpConv3(d3)
+
+        d2 = self.Up2(d3)
+        s1 = self.Att2(gate=d2, skip_connection=e1)
+        d2 = torch.cat((s1, d2), dim=1)
+        d2 = self.UpConv2(d2)
+
+        out = self.Conv(d2)
+
+        return out
+
+
 def test():
     x = torch.randn((3, 3, 480, 640))
     # model = UNET(in_channels=1, out_channels=1)
-    model = UNET_S(in_channels=3, out_channels=3)
+    model = AttentionUNet(3, 3)
     preds = model(x)
-    print(preds.shape)
     assert preds.shape == x.shape
 
 

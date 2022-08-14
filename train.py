@@ -165,7 +165,7 @@ def infer_multi(model):
 
     # videos = ['.\\video\\breast.avi']
     # videos = glob.glob('./video/clinical/*.avi')
-    videos = glob.glob(r'F:\opencv\socket_demo\top_video/*.mp4')
+    videos = glob.glob(r'F:\semantic_segmentation_unet\video/*.avi')
     for video_path in videos:
         # video_path = './video/c4.avi'
         cap = cv2.VideoCapture(video_path)
@@ -185,8 +185,8 @@ def infer_multi(model):
                     if ret:
                         # print(frame.shape)
                         pbar.update(1)
-                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        # frame =np.rot90(frame,-2)
+                        # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        frame =np.rot90(frame,-2)
                         # cv2.imshow('test2', frame)
                         # cv2.waitKey(15)
                         input = frame
@@ -243,5 +243,4 @@ def mapping_color(img):
 
 if __name__ == "__main__":
     # main()
-    test()
-    infer_multi(r'F:\semantic_segmentation_unet\u-resnet34_448_256-epoch=53-val_Iou=0.88.ckpt')
+    infer_multi(r'Unet_S_448_256-epoch=137-val_Iou=0.88.ckpt')
