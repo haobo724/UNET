@@ -239,5 +239,5 @@ def mapping_color(img):
 
 
 if __name__ == "__main__":
-    # main()
-    infer_multi(r'u-resnet34_640_480-epoch=233-val_Iou=0.72.ckpt')
+    main()
+    # infer_multi(r'u-resnet34_640_480-epoch=233-val_Iou=0.72.ckpt')

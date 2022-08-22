@@ -36,6 +36,7 @@ class mutil_train(pl.LightningModule):
         super().__init__()
         self.hparams.__init__(hparams)
         self.lr =self.hparams['lr']
+        self.init_val_iou =True
         # self.loss = nn.CrossEntropyLoss()
         self.loss = FocalLoss(gamma=2)
         self.iou = torchmetrics.classification.iou.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
@@ -52,7 +53,7 @@ class mutil_train(pl.LightningModule):
                 classes=3,  # model output channels (number of classes in your dataset)
                 decoder_attention_type='scse'
             ).cuda()
-        self.automatic_optimization=True
+        # self.automatic_optimization=True
     def get_model_info(self):
         try:
             name = self.model.name
@@ -62,7 +63,23 @@ class mutil_train(pl.LightningModule):
 
     def configure_optimizers(self):
         print(self.hparams)
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "max")
+        scheduler = {
+            "scheduler": lr_scheduler,
+            "reduce_on_plateau": True,
+            # val_checkpoint_on is val_loss passed in as checkpoint_on
+            "monitor": "val_Iou",
+            "patience": 5,
+            "mode": "max",
+            "factor": 0.1,
+            "verbose": True,
+            "min_lr": 1e-8,
+        }
+
+ #        scheduler  =torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10,
+ # verbose=True, threshold=0.01, threshold_mode='rel', cooldown=3, min_lr=1e-08, eps=1e-08)
+        return  [optimizer], [scheduler]
 
     @classmethod
     def add_model_specific_args(cls, parent_parser):
@@ -73,13 +90,19 @@ class mutil_train(pl.LightningModule):
     def forward(self, x):
         return self.model(x)
 
+    def on_train_start(self):
+        if self.init_val_iou:
+
+            print("initing val iou to 0 for metric tracking")
+            self.log("val_Iou", 0)
+            self.init_val_iou = False
 
     def training_step(self, batch, batch_idx, dataset_idx=None):
         x, y = batch
         y_hat = self(x)
         loss = self.loss.forward(y_hat, y.long())
 
-        self.log("loss", loss)
+        self.log("train_loss", loss)
         return {"loss": loss}
 
     def on_validation_start(self) -> None:
@@ -89,11 +112,11 @@ class mutil_train(pl.LightningModule):
         folder = "saved_images/"
         x, y = batch
         y_hat = self(x)
-        preds = torch.softmax(y_hat, dim=1)
+        # preds = torch.softmax(y_hat, dim=1)
 
         loss = self.loss.forward(y_hat, y.long())
 
-        pred = preds.argmax(dim=1).float()
+        pred = y_hat.argmax(dim=1).float()
 
         self.log("val_loss", loss)
 
@@ -104,18 +127,23 @@ class mutil_train(pl.LightningModule):
         self.log("IOU1:", RS_IOU[1], prog_bar=True)
         self.log("IOU2:", RS_IOU[2], prog_bar=True)
 
-        torchvision.utils.save_image(
-            torchvision.utils.make_grid(pred.unsqueeze(1), nrow=self.hparams['batch_size'], normalize=True),
-            f"{folder}/pred_{batch_idx}.png")
-        torchvision.utils.save_image(
-            torchvision.utils.make_grid(y.unsqueeze(1).float(), nrow=self.hparams['batch_size'], normalize=True),
-            f"{folder}/label_{batch_idx}.png")
+        # torchvision.utils.save_image(
+        #     torchvision.utils.make_grid(pred.unsqueeze(1), nrow=self.hparams['batch_size'], normalize=True),
+        #     f"{folder}/pred_{batch_idx}.png")
+        # torchvision.utils.save_image(
+        #     torchvision.utils.make_grid(y.unsqueeze(1).float(), nrow=self.hparams['batch_size'], normalize=True),
+        #     f"{folder}/label_{batch_idx}.png")
 
         return {"val_loss": loss,
                 "iou": (RS_IOU[1] + RS_IOU[2]) / 2, }
         # 'acc': acc}
 
+
+
     def validation_epoch_end(self, outputs):
+        print(self.lr)
+        sch = self.lr_schedulers()
+
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_iou = torch.stack([x['iou'] for x in outputs]).mean()
         # avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
@@ -123,6 +151,10 @@ class mutil_train(pl.LightningModule):
         self.log('val_loss', avg_loss)
         self.log('val_Iou', avg_iou, logger=True)
         # self.log('valid_ACC', avg_acc, logger=True)
+
+        # If the selected scheduler is a ReduceLROnPlateau scheduler.
+        if isinstance(sch, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            sch.step(self.trainer.callback_metrics["val_Iou"])
         print('============end validation==============')
 
     def test_step(self, batch, batch_idx, dataset_idx=None):
