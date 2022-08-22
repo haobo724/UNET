@@ -35,24 +35,24 @@ class mutil_train(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams.__init__(hparams)
+        self.lr =self.hparams['lr']
         # self.loss = nn.CrossEntropyLoss()
         self.loss = FocalLoss(gamma=2)
-
         self.iou = torchmetrics.classification.iou.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
         if hparams['model'] != 'Unet':
             self.model = UNet_PP(num_classes=3, input_channels=3).cuda()
             print('[INFO] Use Unet++')
         else:
             # self.model = UNET_S(in_channels=3, out_channels=3).cuda()
-            self.model = AttentionUNet(img_ch=3, output_ch=3).cuda()
-            # self.model = smp.Unet(
-            #     # encoder_depth=4,
-            #     # decoder_channels=[512,256, 128, 64,32],
-            #     in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-            #     classes=3,  # model output channels (number of classes in your dataset)
-            #     decoder_attention_type='scse'
-            # ).cuda()
-
+            # self.model = AttentionUNet(img_ch=3, output_ch=3).cuda()
+            self.model = smp.Unet(
+                # encoder_depth=4,
+                # decoder_channels=[512,256, 128, 64,32],
+                in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                classes=3,  # model output channels (number of classes in your dataset)
+                decoder_attention_type='scse'
+            ).cuda()
+        self.automatic_optimization=True
     def get_model_info(self):
         try:
             name = self.model.name
@@ -61,9 +61,8 @@ class mutil_train(pl.LightningModule):
         return name
 
     def configure_optimizers(self):
-        # return torch.optim.RMSprop(self.parameters(), lr=self.hparamss['lr'])
         print(self.hparams)
-        return torch.optim.Adam(self.parameters(), lr=self.hparams['lr'])
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     @classmethod
     def add_model_specific_args(cls, parent_parser):
@@ -73,6 +72,7 @@ class mutil_train(pl.LightningModule):
 
     def forward(self, x):
         return self.model(x)
+
 
     def training_step(self, batch, batch_idx, dataset_idx=None):
         x, y = batch

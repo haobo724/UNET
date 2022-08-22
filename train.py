@@ -1,7 +1,7 @@
 import glob
 import os
 from argparse import ArgumentParser
-
+import imageio
 import albumentations as A
 import cv2
 import numpy as np
@@ -21,16 +21,16 @@ from utils import (
 
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-IMAGE_HEIGHT = 256  # 1096 originally  0.25
-IMAGE_WIDTH = 448  # 1936 originally 164 290
+IMAGE_HEIGHT = 480  # 1096 originally  0.25
+IMAGE_WIDTH = 640  # 1936 originally 164 290
 # IMAGE_HEIGHT = 256  # 1096 originally  0.25
 # IMAGE_WIDTH = 256  # 1936 originally
 # print(IMAGE_HEIGHT,IMAGE_WIDTH)
 PIN_MEMORY = True
 # TRAIN_IMG_DIR = "data/clinic/"
 # TRAIN_MASK_DIR = "data/clinic_mask/"
-TRAIN_IMG_DIR = "data/sym/"
-TRAIN_MASK_DIR = "data/sym_mask/"
+TRAIN_IMG_DIR = "data/elbows/"
+TRAIN_MASK_DIR = "data/elbows_mask/"
 VAL_IMG_DIR = TRAIN_IMG_DIR
 VAL_MASK_DIR = TRAIN_MASK_DIR
 test_dir = r"testdata/"
@@ -38,15 +38,14 @@ test_maskdir = r"testdata/"
 
 
 def main():
-    pl.seed_everything(1111)
+    pl.seed_everything(1211)
     mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
-            A.ColorJitter(brightness=0.3, hue=0.2, p=0.3),
-            A.Rotate(limit=5, p=1.0),
-            # A.HorizontalFlip(p=0.3),
-            # A.VerticalFlip(p=0.2),
+            # A.ColorJitter(brightness=0.3, hue=0.2, p=0.3),
+            A.Rotate(limit=5, p=0.3),
+            A.HorizontalFlip(p=0.2),            # A.VerticalFlip(p=0.2),
             A.Normalize(
                 mean=mean_value,
                 std=std_value,
@@ -160,12 +159,12 @@ def infer_multi(model):
         ],
     )
 
-    codec = cv2.VideoWriter_fourcc(*'MJPG')
-    frameSize_s = (448, 256)  # 指定窗口大小
+    frameSize_s = (IMAGE_WIDTH, IMAGE_HEIGHT)  # 指定窗口大小
 
     # videos = ['.\\video\\breast.avi']
-    # videos = glob.glob('./video/clinical/*.avi')
-    videos = glob.glob(r'F:\semantic_segmentation_unet\video/*.avi')
+    # videos = glob.glob('./video/*.avi')
+    videos = glob.glob(r'F:\semantic_segmentation_unet\collected_data\*_top.mp4')
+
     for video_path in videos:
         # video_path = './video/c4.avi'
         cap = cv2.VideoCapture(video_path)
@@ -175,6 +174,15 @@ def infer_multi(model):
         name = 'output_' + video_path.split('\\')[-1]
         out_path = os.path.join('./video/output/', name)
         print(out_path)
+        suffix = out_path.split('.')[-1]
+        if suffix == 'mp4' or suffix == 'MP4':
+            codec = cv2.VideoWriter_fourcc(*'mp4v')
+        else:
+            # suffix == 'avi' or suffix == 'avi':
+            codec = cv2.VideoWriter_fourcc(*'MJPG')
+        # imggg = imageio.imread(r'F:\semantic_segmentation_unet\data\elbows\67.jpg')
+        # cv2.imshow('imggg', imggg)
+        # cv2.waitKey(0)
         out = cv2.VideoWriter(out_path, codec, 15, frameSize_s)
         with torch.no_grad():
 
@@ -185,18 +193,10 @@ def infer_multi(model):
                     if ret:
                         # print(frame.shape)
                         pbar.update(1)
-                        # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        frame =np.rot90(frame,-2)
-                        # cv2.imshow('test2', frame)
-                        # cv2.waitKey(15)
+                        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                        # frame =np.rot90(frame,-2)
                         input = frame
-                        # resize_xform = A.Compose(
-                        #     [
-                        #         A.Resize(height=input.shape[0], width=input.shape[1]),
-                        #
-                        #         ToTensorV2(),
-                        #     ],
-                        # )
+
                         input = infer_xform(image=input)
                         x = input["image"].cuda()
 
@@ -207,16 +207,13 @@ def infer_multi(model):
 
                         pred = preds.argmax(dim=1).float().cpu()
                         img = np.stack([pred[0] for _ in range(3)], axis=-1)
-                        img = mapping_color(img)
-                        # temp = np.array(torch.movedim(x[0].cpu(), 0, 2) * 255)
-                        temp = cv2.resize(frame, (IMAGE_WIDTH, IMAGE_HEIGHT))
-                        concat = np.hstack([img, temp]).astype(np.uint8)
-                        concat = cv2.cvtColor(concat, cv2.COLOR_BGR2RGB)
-                        # concat[...,0],concat[...,2]= concat[...,2],concat[...,0]
-                        # print(concat.shape)
-                        concat = cv2.cvtColor(concat, cv2.COLOR_BGR2RGB)
+                        img = mapping_color(img).astype(np.uint8)
+                        temp = cv2.resize(frame, (IMAGE_WIDTH, IMAGE_HEIGHT)).astype(np.uint8)
+
+                        concat = cv2.addWeighted(temp,0.5,img,0.5,0).astype(np.uint8)
+                        # concat = cv2.cvtColor(concat, cv2.COLOR_BGR2RGB)
                         cv2.imshow('test', concat)
-                        cv2.waitKey(15)
+                        cv2.waitKey(1)
                         out.write(concat)
                     else:
                         break
@@ -243,4 +240,4 @@ def mapping_color(img):
 
 if __name__ == "__main__":
     # main()
-    infer_multi(r'Unet_S_448_256-epoch=137-val_Iou=0.88.ckpt')
+    infer_multi(r'u-resnet34_640_480-epoch=233-val_Iou=0.72.ckpt')

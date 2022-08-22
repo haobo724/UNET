@@ -1,5 +1,5 @@
 import os
-
+import matplotlib
 import cv2
 import imageio
 import numpy as np
@@ -90,6 +90,7 @@ class LeafData(Dataset):
         # import
         # path = os.path.join(self.directory, self.data.iloc[idx]['image_id'])
         img = imageio.imread(self.data[idx])
+
         image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         # image = np.array(imageio.imread(self.data[idx]))
         # augmentations
