@@ -64,13 +64,15 @@ class mutil_train(pl.LightningModule):
     def configure_optimizers(self):
         print(self.hparams)
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
-        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "max")
+        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
         scheduler = {
             "scheduler": lr_scheduler,
             "reduce_on_plateau": True,
+            'threshold' :0.01,
+
             # val_checkpoint_on is val_loss passed in as checkpoint_on
             "monitor": "val_Iou",
-            "patience": 5,
+            "patience": 3,
             "mode": "max",
             "factor": 0.1,
             "verbose": True,
@@ -141,9 +143,7 @@ class mutil_train(pl.LightningModule):
 
 
     def validation_epoch_end(self, outputs):
-        print(self.lr)
         sch = self.lr_schedulers()
-
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_iou = torch.stack([x['iou'] for x in outputs]).mean()
         # avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
@@ -151,10 +151,17 @@ class mutil_train(pl.LightningModule):
         self.log('val_loss', avg_loss)
         self.log('val_Iou', avg_iou, logger=True)
         # self.log('valid_ACC', avg_acc, logger=True)
+        lr = self.optimizers().param_groups[0]['lr']
+        self.log('lr', lr, logger=True)
 
         # If the selected scheduler is a ReduceLROnPlateau scheduler.
         if isinstance(sch, torch.optim.lr_scheduler.ReduceLROnPlateau):
             sch.step(self.trainer.callback_metrics["val_Iou"])
+            print('val_Iou',self.trainer.callback_metrics["val_Iou"])
+
+            # print('real lr',self.optimizers().param_groups[0]['lr'])
+            # print('all',self.optimizers().param_groups[0])
+            # print('all lr_schedulers',lr)
         print('============end validation==============')
 
     def test_step(self, batch, batch_idx, dataset_idx=None):
