@@ -11,6 +11,7 @@ import torchvision
 from matplotlib import pyplot as plt
 from model import UNet_PP, UNET_S, UNET,AttentionUNet
 # from test import AttentionUNet
+torch.cuda.empty_cache()
 
 def mapping_color_tensor(img):
     '''
@@ -46,6 +47,7 @@ class mutil_train(pl.LightningModule):
         else:
             # self.model = UNET_S(in_channels=3, out_channels=3).cuda()
             # self.model = AttentionUNet(img_ch=3, output_ch=3).cuda()
+            # self.model=smp.UnetPlusPlus(in_channels=3,classes=3).cuda()
             self.model = smp.Unet(
                 # encoder_depth=4,
                 # decoder_channels=[512,256, 128, 64,32],
@@ -53,7 +55,7 @@ class mutil_train(pl.LightningModule):
                 classes=3,  # model output channels (number of classes in your dataset)
                 decoder_attention_type='scse'
             ).cuda()
-        # self.automatic_optimization=True
+        self.automatic_optimization=True
     def get_model_info(self):
         try:
             name = self.model.name
@@ -64,24 +66,22 @@ class mutil_train(pl.LightningModule):
     def configure_optimizers(self):
         print(self.hparams)
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
-        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
-        scheduler = {
-            "scheduler": lr_scheduler,
-            "reduce_on_plateau": True,
-            'threshold' :0.01,
 
-            # val_checkpoint_on is val_loss passed in as checkpoint_on
-            "monitor": "val_Iou",
-            "patience": 3,
-            "mode": "max",
-            "factor": 0.1,
-            "verbose": True,
-            "min_lr": 1e-8,
-        }
 
  #        scheduler  =torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10,
  # verbose=True, threshold=0.01, threshold_mode='rel', cooldown=3, min_lr=1e-08, eps=1e-08)
-        return  [optimizer], [scheduler]
+        return   {
+        "optimizer": optimizer,
+        "lr_scheduler": {
+            "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=1,
+  verbose=True, threshold=0.01, threshold_mode='rel', cooldown=0, min_lr=1e-08, eps=1e-08),
+            "monitor": "val_Iou",
+            "frequency": self.trainer.check_val_every_n_epoch,
+            "interval": "epoch",
+            # If "monitor" references validation metrics, then "frequency" should be set to a
+            # multiple of "trainer.check_val_every_n_epoch".
+        },
+    }
 
     @classmethod
     def add_model_specific_args(cls, parent_parser):
@@ -114,11 +114,11 @@ class mutil_train(pl.LightningModule):
         folder = "saved_images/"
         x, y = batch
         y_hat = self(x)
-        # preds = torch.softmax(y_hat, dim=1)
 
         loss = self.loss.forward(y_hat, y.long())
+        preds = torch.softmax(y_hat, dim=1)
 
-        pred = y_hat.argmax(dim=1).float()
+        pred = preds.argmax(dim=1).float()
 
         self.log("val_loss", loss)
 
@@ -143,7 +143,7 @@ class mutil_train(pl.LightningModule):
 
 
     def validation_epoch_end(self, outputs):
-        sch = self.lr_schedulers()
+        # sch = self.lr_schedulers()
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_iou = torch.stack([x['iou'] for x in outputs]).mean()
         # avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
@@ -153,15 +153,16 @@ class mutil_train(pl.LightningModule):
         # self.log('valid_ACC', avg_acc, logger=True)
         lr = self.optimizers().param_groups[0]['lr']
         self.log('lr', lr, logger=True)
+        print('lr', lr)
 
         # If the selected scheduler is a ReduceLROnPlateau scheduler.
-        if isinstance(sch, torch.optim.lr_scheduler.ReduceLROnPlateau):
-            sch.step(self.trainer.callback_metrics["val_Iou"])
-            print('val_Iou',self.trainer.callback_metrics["val_Iou"])
-
-            # print('real lr',self.optimizers().param_groups[0]['lr'])
-            # print('all',self.optimizers().param_groups[0])
-            # print('all lr_schedulers',lr)
+        # if isinstance(sch, torch.optim.lr_scheduler.ReduceLROnPlateau):
+        #     sch.step(self.trainer.callback_metrics["val_Iou"])
+        #     print('val_Iou',self.trainer.callback_metrics["val_Iou"])
+        #
+        #     # print('real lr',self.optimizers().param_groups[0]['lr'])
+        #     # print('all',self.optimizers().param_groups[0])
+        #     # print('all lr_schedulers',lr)
         print('============end validation==============')
 
     def test_step(self, batch, batch_idx, dataset_idx=None):

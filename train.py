@@ -214,6 +214,8 @@ def infer_multi(model):
                         # concat = cv2.cvtColor(concat, cv2.COLOR_BGR2RGB)
                         cv2.imshow('test', concat)
                         cv2.waitKey(1)
+                        print(img.shape)
+                        cv2.imwrite('testtttt.tiff',img[...,0].astype(np.uint8))
                         out.write(concat)
                     else:
                         break
@@ -229,7 +231,7 @@ def mapping_color(img):
     但是不能保证一个series里每次运行生成的colormap都一样，或许可以用种子点？
     反正类少还是可以考虑用这个
             '''
-    color_map = [[247, 251, 255], [171, 207, 209], [55, 135, 192]]
+    color_map = [[247, 251, 255], [1, 207, 209], [2, 135, 192]]
     for label in range(3):
         cord_1 = np.where(img[..., 0] == label)
         img[cord_1[0], cord_1[1], 0] = color_map[label][0]
@@ -239,5 +241,5 @@ def mapping_color(img):
 
 
 if __name__ == "__main__":
-    main()
-    # infer_multi(r'u-resnet34_640_480-epoch=233-val_Iou=0.72.ckpt')
+    # main()
+    infer_multi(r'u-resnet34_640_480-epoch=233-val_Iou=0.72.ckpt')
