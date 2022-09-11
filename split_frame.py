@@ -6,7 +6,7 @@ import cv2
 from tqdm import tqdm
 
 
-def split(path, output_path, sample_rate=10,only_one_frame = False):
+def split(path, output_path, sample_rate=10,only_one_frame = False,idx=[]):
     save_name = os.path.basename(path)
     output_dir = os.path.join(output_path, save_name)
     print(f'[INFO] Video is {save_name}')
@@ -20,7 +20,7 @@ def split(path, output_path, sample_rate=10,only_one_frame = False):
                 ret, frame = stream.read()
                 if not ret:
                     break
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
                 if frame_nr == stream.get(cv2.CAP_PROP_FRAME_COUNT)//2:
                     cv2.imwrite(os.path.join(output_dir, '{}_{:0>3}.jpg'.format(save_name, frame_nr)), frame)
@@ -29,30 +29,42 @@ def split(path, output_path, sample_rate=10,only_one_frame = False):
 
             print('ONLY ONE FRAME DONE')
         else:
-            while True:
-                ret, frame = stream.read()
-                if not ret:
-                    break
-                frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+            if not len(idx):
+                while True:
+                    ret, frame = stream.read()
+                    if not ret:
+                        break
+                    frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
 
-                if frame_nr % sample_rate == 0:
-                    cv2.imwrite(os.path.join(output_dir, '{}_{:0>3}.jpg'.format(save_name, frame_nr)), frame)
-                bar.update(1)
-                frame_nr += 1
+                    if frame_nr % sample_rate == 0:
+                        cv2.imwrite(os.path.join(output_dir, '{}_{:0>3}.jpg'.format(save_name, frame_nr)), frame)
+                    bar.update(1)
+                    frame_nr += 1
+            else:
+                while True:
+                    ret, frame = stream.read()
+                    if not ret:
+                        break
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+                    if frame_nr in idx :
+                        cv2.imwrite(os.path.join(output_dir, '{}_{:0>3}.jpg'.format(save_name, frame_nr)), frame)
+                    bar.update(1)
+                    frame_nr += 1
 
             print('DONE')
 
 
-def rename(file):
+def rename(file,prefix=''):
     print(f'origin name = {file}')
-    prefix = 'FG_'
     path_name = os.path.dirname(file)
     file_name = os.path.basename(file)
     if file_name.split('_')[0][0] !='p':
         file_name = file_name.split('_')[1:]
-        connect ='_'
+        connect =''
         file_name=connect.join(file_name)
     new_file_name = os.path.join(path_name,prefix+file_name)
+    print(new_file_name)
     os.rename(file,new_file_name)
     print(new_file_name)
 
@@ -64,6 +76,7 @@ def copy_file(orgin_path, moved_path):
     :param moved_path:
     :return: copy files from origin path to target path
     '''
+    print('press y or Y to comfirm ,otherwise skip')
     if os.path.isfile(orgin_path):
         shutil.move(orgin_path, moved_path)
     else:
@@ -86,8 +99,8 @@ def copy_file(orgin_path, moved_path):
 
 
 if __name__ == '__main__':
-    path = r'F:\semantic_segmentation_unet\collected_data'
-    output_path = 'output_test'
+    path = r'F:\semantic_segmentation_unet\collected_data\2G'
+    output_path = 'output_test\picked'
     print(f'[INFO] input path is {path}')
     print(f'[INFO] output path is {os.path.abspath(output_path)}')
     videos = glob.glob(os.path.join(path, '*_top.mp4'))
@@ -95,8 +108,9 @@ if __name__ == '__main__':
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     for i in videos:
-        # rename(i)
-        split(i, output_path,sample_rate=20,only_one_frame=True)
+        print(i)
+        # rename(i,'6G_')
+        split(i, output_path,sample_rate=1,only_one_frame=True,idx=[0,94,101,128,227])
     dataset_path = 'dataset'
     if not os.path.exists(dataset_path):
         os.makedirs(dataset_path)

@@ -37,6 +37,7 @@ def cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH):
                                   std=(1, 1, 1)),
                       ToTensorV2()])
     imgs = glob.glob(TRAIN_IMG_DIR + '*.jpg')
+    print(len(imgs))
     image_dataset = LeafData(data=imgs,
                              transform=augs)
     image_loader = DataLoader(image_dataset,

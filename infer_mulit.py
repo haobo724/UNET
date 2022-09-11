@@ -2,29 +2,24 @@ import glob
 import os
 from argparse import ArgumentParser
 
+import albumentations as A
 import cv2
 import numpy as np
 import pandas as pd
+import torch
+from albumentations.pytorch import ToTensorV2
+from matplotlib import pyplot as plt
 
 from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
+from train import mutil_train
 from utils import cal_std_mean
 
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-import torch
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-import PIL.Image as Image
-from train import mutil_train
-
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-NUM_WORKERS = 0
+NUM_WORKERS = 8
 
 PIN_MEMORY = True
-TEST_DIR = 'data/test_set'
-TEST_MASK_DIR = 'data/test_set_mask'
-
-
-# TRAIN_IMG_DIR = "clinic_old/"
+TEST_DIR = r'F:\semantic_segmentation_unet\dataset\elbows2-6G'
+TEST_MASK_DIR = r'F:\semantic_segmentation_unet\dataset\elbows2_6Gmask'
 
 
 def add_training_args(parent_parser):
@@ -34,30 +29,27 @@ def add_training_args(parent_parser):
     parser.add_argument("--worker", type=int, default=8)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--model", type=str, default='Unet')
+    parser.add_argument('--lr', type=float, default=1e-4)
 
     return parser
 
 
 def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
-    IMAGE_HEIGHT = 256  # 1096 originally  0.25
-    IMAGE_WIDTH = 448  # 1936 originally
-    TRAIN_IMG_DIR = "data/clinic/"
+    IMAGE_HEIGHT = 480  # 1096 originally  0.25
+    IMAGE_WIDTH = 640  # 1936 originally
+    TRAIN_IMG_DIR = "data/elbows/"
 
-    if 'mixed' in models:
-        TRAIN_IMG_DIR = "data/mixed_set/"
+    # if 'mixed' in models:
+    #     TRAIN_IMG_DIR = "data/mixed_set/"
+    #
+    # elif 'elbows' in models:
+    #     TRAIN_IMG_DIR = "data/elbows/"
+    #
+    # elif 'eighth' in models:
+    #     IMAGE_HEIGHT = 274 // 8  # 1096 originally  0.25
+    #     IMAGE_WIDTH = 484 // 8  # 1936 originally
+    mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 
-    elif 'elbows' in models:
-        TRAIN_IMG_DIR = "data/elbows/"
-        # mask_dir = 'data/elbows_mask'
-        # img_dir = 'data/elbows'
-    elif 'eighth' in models:
-        IMAGE_HEIGHT = 274 // 8  # 1096 originally  0.25
-        IMAGE_WIDTH = 484 // 8  # 1936 originally
-    temp_flag = True
-    if temp_flag:
-        mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
-    else:
-        mean_value, std_value = [0, 0, 0], [1, 1, 1]
     if img_dir is None or models is None:
         ValueError('raw_dir or model is missing')
     filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.tiff")))
@@ -66,7 +58,9 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
     mask_sum = []
     img_sum = []
     for mask in filename_mask:
-        mask_img = cv2.imread(mask)[..., 0]
+        mask_img = cv2.imread(mask)[..., 0].astype(np.uint8)
+        mask_img = np.where(mask_img > 0, 1, 0).astype(np.uint8)
+        mask_img = cv2.resize(mask_img, ( 640,480))
         mask_sum.append(mask_img)
     mask_sum = np.array(mask_sum)
 
@@ -86,14 +80,14 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
             ToTensorV2(),
         ],
     )
+
     with torch.no_grad():
         for index in range(len(filename_img)):
-            input = np.array(Image.open(filename_img[index]), dtype=np.uint8)
+            input = cv2.imread(filename_img[index]).astype(np.uint8)
             resize_xform = A.Compose(
                 [
-                    A.Resize(height=input.shape[0], width=input.shape[1], interpolation=cv2.INTER_NEAREST),
+                    A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
 
-                    ToTensorV2(),
                 ],
             )
             input = infer_xform(image=input)
@@ -108,17 +102,31 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
             preds = preds.squeeze()
 
             preds = resize_xform(image=preds.cpu().numpy())
-            preds = preds["image"].numpy() * 1
+            preds = preds["image"] * 1
+            preds = np.where(preds > 0, 1, 0).astype(np.uint8)
+
             # plt.figure()
-            # plt.imshow(preds[0])
+            # plt.imshow(preds)
             # plt.show()
-            if post:
-                preds = post_processing(preds) / 255
-            preds = preds.squeeze(0)
+            # if post:
+            preds = post_processing(preds) / 255
+            # preds = preds.squeeze(0)
             img_sum.append(preds)
     img_sum = np.array(img_sum)
-    # assert np.max(img_sum) == np.max(mask_sum)
-    assert np.min(img_sum) == np.min(mask_sum)
+    # assert np.min(img_sum) == np.min(mask_sum)
+    print(np.unique(mask_sum))
+    print(np.unique(img_sum))
+    iou = 0
+    for  i ,j in zip(mask_sum,img_sum):
+        eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), i.astype(np.uint8), j.astype(np.uint8))
+        iou += calculate_IoU(eval_mat)[1]
+        # print(i.shape)
+        # print(j.shape)
+        # m = cv2.addWeighted(i.astype(np.uint8),0.5,j.astype(np.uint8),0.5,1)
+        # plt.figure()
+        # plt.imshow(m)
+        # plt.show()
+    print('IoUuu:', iou/len(img_sum))
 
     eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), mask_sum, img_sum)
     print('indi IoU:', calculate_IoU(eval_mat))
@@ -180,7 +188,7 @@ if __name__ == "__main__":
 
     '''
     modelslist = []
-    for root, dirs, files in os.walk(r"model_pixel"):
+    for root, dirs, files in os.walk(r"resnet"):
         for file in files:
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))

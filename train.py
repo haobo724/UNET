@@ -23,12 +23,8 @@ from utils import (
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMAGE_HEIGHT = 480  # 1096 originally  0.25
 IMAGE_WIDTH = 640  # 1936 originally 164 290
-# IMAGE_HEIGHT = 256  # 1096 originally  0.25
-# IMAGE_WIDTH = 256  # 1936 originally
-# print(IMAGE_HEIGHT,IMAGE_WIDTH)
+
 PIN_MEMORY = True
-# TRAIN_IMG_DIR = "data/clinic/"
-# TRAIN_MASK_DIR = "data/clinic_mask/"
 TRAIN_IMG_DIR = "data/elbows/"
 TRAIN_MASK_DIR = "data/elbows_mask/"
 VAL_IMG_DIR = TRAIN_IMG_DIR
@@ -130,12 +126,6 @@ def main():
     print('THE END')
 
 
-def test():
-    img = cv2.imread(r'UNET_architecture.png')
-    cv2.namedWindow('test')
-    cv2.imshow('test', img)
-    cv2.waitKey()
-
 
 def infer_multi(model):
     parser = ArgumentParser()
@@ -153,7 +143,7 @@ def infer_multi(model):
 
                 mean=mean_v,
                 std=std_v,
-                # max_pixel_value=255.0,
+                max_pixel_value=255.0,
             ),
             ToTensorV2(),
         ],
@@ -163,7 +153,7 @@ def infer_multi(model):
 
     # videos = ['.\\video\\breast.avi']
     # videos = glob.glob('./video/*.avi')
-    videos = glob.glob(r'F:\semantic_segmentation_unet\collected_data\*_top.mp4')
+    videos = glob.glob(r'F:\semantic_segmentation_unet\video\*.mp4')
 
     for video_path in videos:
         # video_path = './video/c4.avi'
@@ -193,7 +183,7 @@ def infer_multi(model):
                     if ret:
                         # print(frame.shape)
                         pbar.update(1)
-                        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                        # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                         # frame =np.rot90(frame,-2)
                         input = frame
 
@@ -214,8 +204,7 @@ def infer_multi(model):
                         # concat = cv2.cvtColor(concat, cv2.COLOR_BGR2RGB)
                         cv2.imshow('test', concat)
                         cv2.waitKey(1)
-                        print(img.shape)
-                        cv2.imwrite('testtttt.tiff',img[...,0].astype(np.uint8))
+                        # cv2.imwrite('testtttt.tiff',img[...,0].astype(np.uint8))
                         out.write(concat)
                     else:
                         break
