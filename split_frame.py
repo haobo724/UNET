@@ -126,8 +126,8 @@ if __name__ == '__main__':
         # rename(i,'7G_')
         split(video, splited_frame_saved_path, only_one_frame=False, idx=[], sample_rate=10)
 
-    # choose the file 2. part
-    dataset_path = 'dataset'
-    if not os.path.exists(dataset_path):
-        os.makedirs(dataset_path)
-    copy_file(splited_frame_saved_path, dataset_path)
+    # manually choose the file (which one could be used)
+    final_saved_path = 'dataset'
+    if not os.path.exists(final_saved_path):
+        os.makedirs(final_saved_path)
+    copy_file(splited_frame_saved_path, final_saved_path)
