@@ -7,18 +7,14 @@ from argparse import ArgumentParser
 import cv2
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
+
 from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
-from utils import cal_std_mean
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-import PIL.Image as Image
-import torchvision
 from mutil_train import unet_train
-from model import UNET
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 4

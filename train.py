@@ -1,7 +1,7 @@
 import glob
 import os
 from argparse import ArgumentParser
-import imageio
+
 import albumentations as A
 import cv2
 import numpy as np
@@ -25,8 +25,8 @@ IMAGE_HEIGHT = 480  # 1096 originally  0.25
 IMAGE_WIDTH = 640  # 1936 originally 164 290
 
 PIN_MEMORY = True
-TRAIN_IMG_DIR = "data/elbows/"
-TRAIN_MASK_DIR = "data/elbows_mask/"
+TRAIN_IMG_DIR = "F:\Siemens\GreenPointpick\input"
+TRAIN_MASK_DIR = "F:\Siemens\GreenPointpick\mask"
 VAL_IMG_DIR = TRAIN_IMG_DIR
 VAL_MASK_DIR = TRAIN_MASK_DIR
 test_dir = r"testdata/"
@@ -90,7 +90,7 @@ def main():
     if args.model != 'Unet':
         ckpt_callback = ModelCheckpoint(
             monitor='val_Iou',
-            save_top_k=2,
+            save_top_k=1,
             mode='max',
             filename='{Unetppepoch:02d}-{val_Iou:.2f}',
             save_last=True
@@ -100,7 +100,7 @@ def main():
         prefix = model_name + '_' + str(IMAGE_WIDTH) + '_' + str(IMAGE_HEIGHT)
         ckpt_callback = ModelCheckpoint(
             monitor='val_Iou',
-            save_top_k=2,
+            save_top_k=1,
             mode='max',
             filename='{}'.format(prefix) + '-{epoch:02d}-{val_Iou:.2f}',
 

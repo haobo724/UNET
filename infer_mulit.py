@@ -11,15 +11,15 @@ from albumentations.pytorch import ToTensorV2
 from matplotlib import pyplot as plt
 
 from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
-from train import mutil_train
+from train import mutil_train, mapping_color
 from utils import cal_std_mean
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 8
 
 PIN_MEMORY = True
-TEST_DIR = r'F:\semantic_segmentation_unet\dataset\elbows2-6G'
-TEST_MASK_DIR = r'F:\semantic_segmentation_unet\dataset\elbows2_6Gmask'
+TEST_DIR = r'F:\Siemens\GreenPointpick\test_input'
+TEST_MASK_DIR = r'F:\Siemens\GreenPointpick\test_mask'
 
 
 def add_training_args(parent_parser):
@@ -35,19 +35,11 @@ def add_training_args(parent_parser):
 
 
 def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
+    only_breast = False
     IMAGE_HEIGHT = 480  # 1096 originally  0.25
     IMAGE_WIDTH = 640  # 1936 originally
-    TRAIN_IMG_DIR = "data/elbows/"
+    TRAIN_IMG_DIR = r"F:\Siemens\GreenPointpick\input"
 
-    # if 'mixed' in models:
-    #     TRAIN_IMG_DIR = "data/mixed_set/"
-    #
-    # elif 'elbows' in models:
-    #     TRAIN_IMG_DIR = "data/elbows/"
-    #
-    # elif 'eighth' in models:
-    #     IMAGE_HEIGHT = 274 // 8  # 1096 originally  0.25
-    #     IMAGE_WIDTH = 484 // 8  # 1936 originally
     mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 
     if img_dir is None or models is None:
@@ -56,10 +48,12 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
     filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
 
     mask_sum = []
-    img_sum = []
+    pred_sum = []
+    pred_color_sum = []
     for mask in filename_mask:
         mask_img = cv2.imread(mask)[..., 0].astype(np.uint8)
-        mask_img = np.where(mask_img > 0, 1, 0).astype(np.uint8)
+        if only_breast:
+            mask_img = np.where(mask_img > 0, 1, 0).astype(np.uint8)
         mask_img = cv2.resize(mask_img, ( 640,480))
         mask_sum.append(mask_img)
     mask_sum = np.array(mask_sum)
@@ -80,10 +74,12 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
             ToTensorV2(),
         ],
     )
-
+    input_sum = []
     with torch.no_grad():
         for index in range(len(filename_img)):
             input = cv2.imread(filename_img[index]).astype(np.uint8)
+            input_sum.append(input)
+
             resize_xform = A.Compose(
                 [
                     A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
@@ -91,50 +87,56 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
                 ],
             )
             input = infer_xform(image=input)
+
             x = input["image"].cuda()
 
             x = torch.unsqueeze(x, dim=0)
             model.eval()
             y_hat = model(x)
             preds = torch.softmax(y_hat, dim=1)
-
             preds = preds.argmax(dim=1).float()
             preds = preds.squeeze()
 
             preds = resize_xform(image=preds.cpu().numpy())
             preds = preds["image"] * 1
-            preds = np.where(preds > 0, 1, 0).astype(np.uint8)
+            if only_breast:
+                preds = np.where(preds > 0, 1, 0).astype(np.uint8)
+                preds = post_processing(preds) / 255
 
+            pred_color = np.stack([preds for _ in range(3)], axis=-1)
+            pred_color = mapping_color(pred_color).astype(np.uint8)
+            pred_color_sum.append(pred_color)
             # plt.figure()
             # plt.imshow(preds)
             # plt.show()
             # if post:
-            preds = post_processing(preds) / 255
             # preds = preds.squeeze(0)
-            img_sum.append(preds)
-    img_sum = np.array(img_sum)
-    # assert np.min(img_sum) == np.min(mask_sum)
+
+            pred_sum.append(preds)
+    pred_sum = np.array(pred_sum)
+    input_sum = np.array(input_sum)
+    pred_color_sum = np.array(pred_color_sum)
     print(np.unique(mask_sum))
-    print(np.unique(img_sum))
+    print(np.unique(pred_sum))
     iou = 0
-    for  i ,j in zip(mask_sum,img_sum):
+    for  i ,j,img,pc in zip(mask_sum,pred_sum,input_sum,pred_color_sum):
         eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), i.astype(np.uint8), j.astype(np.uint8))
         iou += calculate_IoU(eval_mat)[1]
-        # print(i.shape)
-        # print(j.shape)
-        # m = cv2.addWeighted(i.astype(np.uint8),0.5,j.astype(np.uint8),0.5,1)
-        # plt.figure()
-        # plt.imshow(m)
-        # plt.show()
-    print('IoUuu:', iou/len(img_sum))
+        print(img.shape)
+        m = cv2.addWeighted(img.astype(np.uint8),0.5,pc.astype(np.uint8),0.5,1)
 
-    eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), mask_sum, img_sum)
+        plt.figure()
+        plt.imshow(m)
+        plt.show()
+    print('Only brest iou:', iou/len(pred_sum))
+
+    eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), mask_sum, pred_sum)
     print('indi IoU:', calculate_IoU(eval_mat))
     print('IoU:', np.mean(calculate_IoU(eval_mat)[1:]))
     print('-' * 20)
 
     # print('acc:', calculate_acc(eval_mat))
-    std_acc, std_iou, var_acc, var_iou = single_metric(img_sum, mask_sum, sufix=sufix, post=post)
+    std_acc, std_iou, var_acc, var_iou = single_metric(pred_sum, mask_sum, sufix=sufix, post=post)
     return np.mean(calculate_IoU(eval_mat)), calculate_acc(eval_mat), std_acc, std_iou, var_acc, var_iou
 
 

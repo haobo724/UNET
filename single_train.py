@@ -14,7 +14,7 @@ from tqdm import tqdm
 from mutil_train import unet_train
 from utils import (
     get_testloaders,
-    get_loaders, cal_std_mean
+    get_loaders
 )
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint

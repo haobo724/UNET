@@ -1,6 +1,6 @@
 import logging
 from argparse import ArgumentParser
-from utils import FocalLoss
+
 import numpy as np
 import pytorch_lightning as pl
 import segmentation_models_pytorch as smp
@@ -9,9 +9,13 @@ import torch.nn as nn
 import torchmetrics
 import torchvision
 from matplotlib import pyplot as plt
-from model import UNet_PP, UNET_S, UNET,AttentionUNet
+
+from model import UNet_PP, UNET_S, UNET
+from utils import FocalLoss
+
 # from test import AttentionUNet
 torch.cuda.empty_cache()
+
 
 def mapping_color_tensor(img):
     '''
@@ -32,12 +36,13 @@ def mapping_color_tensor(img):
         return img
     return img.astype(int)
 
+
 class mutil_train(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams.__init__(hparams)
-        self.lr =self.hparams['lr']
-        self.init_val_iou =True
+        self.lr = self.hparams['lr']
+        self.init_val_iou = True
         # self.loss = nn.CrossEntropyLoss()
         self.loss = FocalLoss(gamma=2)
         self.iou = torchmetrics.classification.iou.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
@@ -55,7 +60,8 @@ class mutil_train(pl.LightningModule):
                 classes=3,  # model output channels (number of classes in your dataset)
                 decoder_attention_type='scse'
             ).cuda()
-        self.automatic_optimization=True
+        self.automatic_optimization = True
+
     def get_model_info(self):
         try:
             name = self.model.name
@@ -67,21 +73,22 @@ class mutil_train(pl.LightningModule):
         print(self.hparams)
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
-
- #        scheduler  =torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10,
- # verbose=True, threshold=0.01, threshold_mode='rel', cooldown=3, min_lr=1e-08, eps=1e-08)
-        return   {
-        "optimizer": optimizer,
-        "lr_scheduler": {
-            "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=1,
-  verbose=True, threshold=0.01, threshold_mode='rel', cooldown=0, min_lr=1e-08, eps=1e-08),
-            "monitor": "val_Iou",
-            "frequency": self.trainer.check_val_every_n_epoch,
-            "interval": "epoch",
-            # If "monitor" references validation metrics, then "frequency" should be set to a
-            # multiple of "trainer.check_val_every_n_epoch".
-        },
-    }
+        #        scheduler  =torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10,
+        # verbose=True, threshold=0.01, threshold_mode='rel', cooldown=3, min_lr=1e-08, eps=1e-08)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=1,
+                                                                        verbose=True, threshold=0.01,
+                                                                        threshold_mode='rel', cooldown=0, min_lr=1e-08,
+                                                                        eps=1e-08),
+                "monitor": "val_Iou",
+                "frequency": self.trainer.check_val_every_n_epoch,
+                "interval": "epoch",
+                # If "monitor" references validation metrics, then "frequency" should be set to a
+                # multiple of "trainer.check_val_every_n_epoch".
+            },
+        }
 
     @classmethod
     def add_model_specific_args(cls, parent_parser):
@@ -94,8 +101,7 @@ class mutil_train(pl.LightningModule):
 
     def on_train_start(self):
         if self.init_val_iou:
-
-            print("initing val iou to 0 for metric tracking")
+            print("\n initing val iou to 0 for metric tracking")
             self.log("val_Iou", 0)
             self.init_val_iou = False
 
@@ -139,8 +145,6 @@ class mutil_train(pl.LightningModule):
         return {"val_loss": loss,
                 "iou": (RS_IOU[1] + RS_IOU[2]) / 2, }
         # 'acc': acc}
-
-
 
     def validation_epoch_end(self, outputs):
         # sch = self.lr_schedulers()
@@ -193,7 +197,6 @@ class mutil_train(pl.LightningModule):
         concat = np.hstack([img, temp])
         plt.imshow(concat)
         plt.show()
-
 
 
 class unet_train(pl.LightningModule):
@@ -317,7 +320,7 @@ class unet_train(pl.LightningModule):
         # avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
         # self.train_logger.info("Validatoin epoch {} ends, val_loss = {}".format(self.current_epoch, avg_loss))
         self.log('val_loss', avg_loss)
-        self.log('val_Iou', avg_iou,logger=True)
+        self.log('val_Iou', avg_iou, logger=True)
         # self.log('valid_IOU', avg_iou, logger=True)
         # self.log('valid_ACC', avg_acc, logger=True)
         print('============end validation==============')

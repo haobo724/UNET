@@ -6,7 +6,7 @@ import cv2
 from tqdm import tqdm
 
 
-def split(path, output_path, only_one_frame=False, idx=[], sample_rate=10):
+def split(path, output_path, only_one_frame=False, idx=None, sample_rate=10):
     '''
     Priority:
     1.only_one_frame (set True is active)
@@ -14,6 +14,8 @@ def split(path, output_path, only_one_frame=False, idx=[], sample_rate=10):
     3.sample_rate (always active ,default mode)
 
     '''
+    if idx is None:
+        idx = []
     save_name = os.path.basename(path)
     output_dir = os.path.join(output_path, save_name)
     print(f'[INFO] Video is {save_name}')
@@ -121,13 +123,14 @@ if __name__ == '__main__':
 
     # to choose only then top video , can changed as *_bot.mp4 to choose the bot video or *.mp4 to choose all video
     videos = glob.glob(os.path.join(video_path, '*_top.mp4'))
-
+    split(r'F:\semantic_segmentation_unet\collected_data\7G\7G_patient30_top',splited_frame_saved_path,sample_rate=1)
+    input()
     for video in videos:
         # rename(i,'7G_')
         split(video, splited_frame_saved_path, only_one_frame=False, idx=[], sample_rate=10)
 
-    # manually choose the file (which one could be used)
-    final_saved_path = 'dataset'
-    if not os.path.exists(final_saved_path):
-        os.makedirs(final_saved_path)
-    copy_file(splited_frame_saved_path, final_saved_path)
+    # # manually choose the file (which one could be used)
+    # final_saved_path = 'dataset'
+    # if not os.path.exists(final_saved_path):
+    #     os.makedirs(final_saved_path)
+    # copy_file(splited_frame_saved_path, final_saved_path)

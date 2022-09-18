@@ -1,9 +1,10 @@
 import os
 from argparse import ArgumentParser
-import torch.nn as nn
-import torch.nn.functional as F
+
 import albumentations as A
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from albumentations.pytorch import ToTensorV2
 from setuptools import glob
 from sklearn import model_selection
@@ -11,6 +12,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from dataset import CarvanaDataset, CarvanaDataset_multi, LeafData
+
 
 class FocalLoss(nn.CrossEntropyLoss):
     ''' Focal loss for classification tasks on imbalanced datasets '''
@@ -36,7 +38,7 @@ def cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH):
                       A.Normalize(mean=(0, 0, 0),
                                   std=(1, 1, 1)),
                       ToTensorV2()])
-    imgs = glob.glob(TRAIN_IMG_DIR + '*.jpg')
+    imgs = glob.glob(os.path.join(TRAIN_IMG_DIR,'*.jpg') )
     print(len(imgs))
     image_dataset = LeafData(data=imgs,
                              transform=augs)
@@ -173,9 +175,10 @@ def get_loaders_multi(
         pin_memory=True,
         seed=1234
 ):
-    X = glob.glob(train_dir + '/*.jpg')
-    y = glob.glob(train_maskdir + '/*.tiff')
-    X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.2, random_state=seed)
+
+    X = glob.glob(os.path.join(train_dir,'*.jpg') )
+    y = glob.glob(os.path.join(train_maskdir,'*.tiff'))
+    X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.1, random_state=seed)
     train_img = []
     train_mask = []
     val_img = []
