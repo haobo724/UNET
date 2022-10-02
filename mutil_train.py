@@ -78,9 +78,9 @@ class mutil_train(pl.LightningModule):
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
-                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=1,
+                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=5,
                                                                         verbose=True, threshold=0.01,
-                                                                        threshold_mode='rel', cooldown=0, min_lr=1e-08,
+                                                                        threshold_mode='rel', cooldown=3, min_lr=1e-08,
                                                                         eps=1e-08),
                 "monitor": "val_Iou",
                 "frequency": self.trainer.check_val_every_n_epoch,

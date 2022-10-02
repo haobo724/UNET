@@ -25,12 +25,12 @@ IMAGE_HEIGHT = 480  # 1096 originally  0.25
 IMAGE_WIDTH = 640  # 1936 originally 164 290
 
 PIN_MEMORY = True
-TRAIN_IMG_DIR = "F:\Siemens\GreenPointpick\input"
-TRAIN_MASK_DIR = "F:\Siemens\GreenPointpick\mask"
+TRAIN_IMG_DIR = "F:\semantic_segmentation_unet\data\All_clinic"
+TRAIN_MASK_DIR = "F:\semantic_segmentation_unet\data\All_clinic_mask"
 VAL_IMG_DIR = TRAIN_IMG_DIR
 VAL_MASK_DIR = TRAIN_MASK_DIR
-test_dir = r"testdata/"
-test_maskdir = r"testdata/"
+test_dir = r"F:\semantic_segmentation_unet\data\test_new"
+test_maskdir = r"F:\semantic_segmentation_unet\data\test_new_mask"
 
 
 def main():
@@ -39,8 +39,8 @@ def main():
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
-            # A.ColorJitter(brightness=0.3, hue=0.2, p=0.3),
-            A.Rotate(limit=5, p=0.3),
+            A.ColorJitter(brightness=0.3, p=0.2),
+            A.Rotate(limit=10, p=0.2),
             A.HorizontalFlip(p=0.2),            # A.VerticalFlip(p=0.2),
             A.Normalize(
                 mean=mean_value,
@@ -230,5 +230,5 @@ def mapping_color(img):
 
 
 if __name__ == "__main__":
-    # main()
-    infer_multi(r'u-resnet34_640_480-epoch=233-val_Iou=0.72.ckpt')
+    main()
+    # infer_multi(r'u-resnet34_640_480-epoch=233-val_Iou=0.72.ckpt')

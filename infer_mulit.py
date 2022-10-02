@@ -18,8 +18,11 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 8
 
 PIN_MEMORY = True
+
 TEST_DIR = r'F:\Siemens\GreenPointpick\test_input'
+# TEST_DIR = r'F:\semantic_segmentation_unet\data\test_new'
 TEST_MASK_DIR = r'F:\Siemens\GreenPointpick\test_mask'
+# TEST_MASK_DIR = r'F:\semantic_segmentation_unet\data\test_new_mask'
 
 
 def add_training_args(parent_parser):
@@ -35,21 +38,28 @@ def add_training_args(parent_parser):
 
 
 def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
-    only_breast = False
+    only_breast = True
     IMAGE_HEIGHT = 480  # 1096 originally  0.25
     IMAGE_WIDTH = 640  # 1936 originally
-    TRAIN_IMG_DIR = r"F:\Siemens\GreenPointpick\input"
+    TRAIN_IMG_DIR = r"F:\semantic_segmentation_unet\data\All_clinic"
 
     mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 
     if img_dir is None or models is None:
         ValueError('raw_dir or model is missing')
+
     filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.tiff")))
     filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
+    bn = sorted(list(map(os.path.basename,filename_img)))
+    bnm = sorted(list(map(os.path.basename,filename_mask)))
+    # print(sorted(bn))
+    assert len(filename_mask) == len(filename_img)
+    for i ,j in zip(bn,bnm):
+        print(i,j)
+
 
     mask_sum = []
     pred_sum = []
-    pred_color_sum = []
     for mask in filename_mask:
         mask_img = cv2.imread(mask)[..., 0].astype(np.uint8)
         if only_breast:
@@ -78,6 +88,8 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
     with torch.no_grad():
         for index in range(len(filename_img)):
             input = cv2.imread(filename_img[index]).astype(np.uint8)
+            # input = np.rot90(input,-2)
+            # input = cv2.cvtColor(input,cv2.COLOR_BGR2RGB)
             input_sum.append(input)
 
             resize_xform = A.Compose(
@@ -103,9 +115,6 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
                 preds = np.where(preds > 0, 1, 0).astype(np.uint8)
                 preds = post_processing(preds) / 255
 
-            pred_color = np.stack([preds for _ in range(3)], axis=-1)
-            pred_color = mapping_color(pred_color).astype(np.uint8)
-            pred_color_sum.append(pred_color)
             # plt.figure()
             # plt.imshow(preds)
             # plt.show()
@@ -115,18 +124,22 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
             pred_sum.append(preds)
     pred_sum = np.array(pred_sum)
     input_sum = np.array(input_sum)
-    pred_color_sum = np.array(pred_color_sum)
     print(np.unique(mask_sum))
     print(np.unique(pred_sum))
     iou = 0
-    for  i ,j,img,pc in zip(mask_sum,pred_sum,input_sum,pred_color_sum):
+    for  i ,j,img in zip(mask_sum,pred_sum,input_sum):
         eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), i.astype(np.uint8), j.astype(np.uint8))
         iou += calculate_IoU(eval_mat)[1]
-        print(img.shape)
-        m = cv2.addWeighted(img.astype(np.uint8),0.5,pc.astype(np.uint8),0.5,1)
-
+        img = cv2.resize(img, ( 640,480))
+        pred_color = np.stack([j for _ in range(3)], axis=-1)
+        mask_color = np.stack([i for _ in range(3)], axis=-1)
+        pc = mapping_color(pred_color)
+        mc = mapping_color(mask_color)
+        input_pc = cv2.addWeighted(img.astype(np.uint8),0.5,pc.astype(np.uint8),0.5,1)
+        input_mc = cv2.addWeighted(img.astype(np.uint8),0.5,mc.astype(np.uint8),0.5,1)
+        result = np.concatenate([input_mc,input_pc,img],axis=1)
         plt.figure()
-        plt.imshow(m)
+        plt.imshow(result)
         plt.show()
     print('Only brest iou:', iou/len(pred_sum))
 

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-
+import segmentation_models_pytorch as smp
+from torchsummary import summary
 
 class ConvBlock(nn.Module):
 
@@ -23,6 +24,29 @@ class ConvBlock(nn.Module):
         x = self.conv(x)
         return x
 
+class ConvBlock3(nn.Module):
+
+    def __init__(self, in_channels, out_channels):
+        super(ConvBlock3, self).__init__()
+
+        # number of input channels is a number of filters in the previous layer
+        # number of output channels is a number of filters in the current layer
+        # "same" convolutions
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        x = self.conv(x)
+        return x
 
 class UpConv(nn.Module):
 
@@ -93,11 +117,16 @@ class AttentionUNet(nn.Module):
 
         self.Conv1 = ConvBlock(img_ch, 64)
         self.Conv2 = ConvBlock(64, 128)
-        self.Conv3 = ConvBlock(128, 256)
-        self.Conv4 = ConvBlock(256, 512)
-        self.Conv5 = ConvBlock(512, 1024)
+        self.Conv3 = ConvBlock3(128, 256)
+        self.Conv4 = ConvBlock3(256, 512)
 
-        self.Up5 = UpConv(1024, 512)
+        # self.Conv5 = ConvBlock(512, 1024)
+        # self.Up5 = UpConv(1024, 512)
+        # self.Att5 = AttentionBlock(F_g=512, F_l=512, n_coefficients=256)
+        # self.UpConv5 = ConvBlock(1024, 512)
+
+        self.Conv5 = ConvBlock3(512, 512)
+        self.Up5 = UpConv(512, 512)
         self.Att5 = AttentionBlock(F_g=512, F_l=512, n_coefficients=256)
         self.UpConv5 = ConvBlock(1024, 512)
 
@@ -131,17 +160,17 @@ class AttentionUNet(nn.Module):
 
         e4 = self.MaxPool(e3)
         e4 = self.Conv4(e4)
-
+        #
         e5 = self.MaxPool(e4)
         e5 = self.Conv5(e5)
 
         d5 = self.Up5(e5)
-
         s4 = self.Att5(gate=d5, skip_connection=e4)
-        d5 = torch.cat((s4, d5), dim=1) # concatenate attention-weighted skip connection with previous layer output
+        d5 = torch.cat((s4, d5), dim=1)  # concatenate attention-weighted skip connection with previous layer output
         d5 = self.UpConv5(d5)
 
         d4 = self.Up4(d5)
+        # d4 = self.Up4(e4)
         s3 = self.Att4(gate=d4, skip_connection=e3)
         d4 = torch.cat((s3, d4), dim=1)
         d4 = self.UpConv4(d4)
@@ -161,18 +190,6 @@ class AttentionUNet(nn.Module):
         return out
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 class sSE(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
@@ -184,23 +201,25 @@ class sSE(nn.Module):
         q = self.norm(q)
         return U * q  # 广播机制
 
+
 class cSE(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.Conv_Squeeze = nn.Conv2d(in_channels, in_channels // 2, kernel_size=1, bias=False)
-        self.Conv_Excitation = nn.Conv2d(in_channels//2, in_channels, kernel_size=1, bias=False)
+        self.Conv_Excitation = nn.Conv2d(in_channels // 2, in_channels, kernel_size=1, bias=False)
         self.relu = nn.ReLU()
         self.norm = nn.Sigmoid()
 
     def forward(self, U):
-        z = self.avgpool(U)# shape: [bs, c, h, w] to [bs, c, 1, 1]
-        z = self.Conv_Squeeze(z) # shape: [bs, c/2]
+        z = self.avgpool(U)  # shape: [bs, c, h, w] to [bs, c, 1, 1]
+        z = self.Conv_Squeeze(z)  # shape: [bs, c/2]
         z = self.relu(z)
-        z = self.Conv_Excitation(z) # shape: [bs, c]
+        z = self.Conv_Excitation(z)  # shape: [bs, c]
         z = self.norm(z)
 
         return U * z.expand_as(U)
+
 
 class scSE(nn.Module):
     def __init__(self, in_channels):
@@ -210,17 +229,51 @@ class scSE(nn.Module):
 
     def forward(self, U):
         U_sse = self.sSE(U)
-        print('U_sse',U_sse.size())
+        print('U_sse', U_sse.size())
         U_cse = self.cSE(U)
-        print('U_cse',U_cse.size())
+        print('U_cse', U_cse.size())
 
-        return U_cse+U_sse
+        return U_cse + U_sse
+def get_model_parametersum(model):
+    total = sum(p.numel() for p in model.parameters())
+
+    print("Total params: %.2fM" % (total / 1e6))
 
 if __name__ == "__main__":
     bs, c, h, w = 10, 3, 64, 64
     in_tensor = torch.ones(bs, c, h, w)
 
-    sc_se = scSE(c)
-    print("in shape:",in_tensor.shape)
-    out_tensor = sc_se(in_tensor)
+    A = AttentionUNet()
+    print("in shape:", in_tensor.shape)
+    out_tensor = A(in_tensor)
     print("out shape:", out_tensor.shape)
+    # summary(A, (3, 224, 224))
+    model_vgg = smp.Unet(encoder_name='vgg16',
+                # encoder_depth=4,
+                # decoder_channels=[512,256, 128, 64,32],
+                in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                classes=3,  # model output channels (number of classes in your dataset)
+                # decoder_attention_type='scse'
+            ).cuda()
+
+    model_res = smp.Unet(encoder_name='resnet34',
+                     # encoder_depth=4,
+                     # decoder_channels=[512,256, 128, 64,32],
+                     in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                     classes=3,  # model output channels (number of classes in your dataset)
+                     # decoder_attention_type='scse'
+                     ).cuda()
+
+    model_pp = smp.UnetPlusPlus(
+                         # encoder_depth=4,
+                         # decoder_channels=[512,256, 128, 64,32],
+                         in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                         classes=3,  # model output channels (number of classes in your dataset)
+                         # decoder_attention_type='scse'
+                         ).cuda()
+    get_model_parametersum(model_vgg)
+    get_model_parametersum(model_res)
+    get_model_parametersum(model_pp)
+    # get_model_parametersum(A)
+    summary(model_vgg,(3,224,224))
+    summary(A,(3,224,224))

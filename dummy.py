@@ -1,12 +1,46 @@
-import matplotlib.pyplot as plt
-import torch
-import torchvision
-import torchvision.transforms as transforms
+import glob
+import os
+import cv2
+img_dir = r'F:\semantic_segmentation_unet\data\2022clinic'
+# TEST_MASK_DIR = r'F:\opencv\socket_demo\export'
+mask_dir = r'F:\semantic_segmentation_unet\data\clinic_mask'
+def rename(file, prefix=''):
+    '''
 
-img = plt.imread('UNET_architecture.png')
-img_tensor = transforms.ToTensor()(img)
-img_tensor = img_tensor.repeat(10, 1, 1, 1)
-print(img_tensor.type())
-print(img_tensor.size())
-print(torch.unique(img_tensor))
-torchvision.utils.save_image(img_tensor, 'out.jpg')
+    rename the video in order to distinguish between the videos of different acquisition groups
+    because everytime the recorded video is saved as patient_0_top.mp4 ....patient_n_top.mp4
+    '''
+    print(f'origin name = {file}')
+    path_name = os.path.dirname(file)
+    file_name = os.path.basename(file)
+    prefix='-labels'
+    if prefix in file_name:
+        return
+    basename = file_name.split('_m')[0]
+    print(basename)
+    newname = basename+prefix
+    new_file_name = os.path.join(path_name, newname+'.tiff')
+    os.rename(file, new_file_name)
+    print(new_file_name)
+def convert_BGR(file):
+    print(f'origin name = {file}')
+    img = cv2.imread(file)
+    img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+    cv2.imwrite(file,img)
+
+filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.tiff")))
+filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
+
+for i in filename_img:
+    convert_BGR(i)
+
+# a =['79-','8-','80-','81-']
+# # b =['79_','8_','80_','81_']
+# print(sorted(a))
+# # print(sorted(b))
+#
+# bnm = sorted(list(map(os.path.basename, filename_mask)))
+# bn = sorted(list(map(os.path.basename, filename_img)))
+#
+# for i, j in zip(bn, bnm):
+#     print(i, j)
