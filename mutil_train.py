@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt
 from model import UNet_PP, UNET_S, UNET
 from utils import FocalLoss
 
-# from test import AttentionUNet
+from test import AttentionUNet
 torch.cuda.empty_cache()
 
 
@@ -51,15 +51,15 @@ class mutil_train(pl.LightningModule):
             print('[INFO] Use Unet++')
         else:
             # self.model = UNET_S(in_channels=3, out_channels=3).cuda()
-            # self.model = AttentionUNet(img_ch=3, output_ch=3).cuda()
+            self.model = AttentionUNet(img_ch=3, output_ch=3,res=True).cuda()
             # self.model=smp.UnetPlusPlus(in_channels=3,classes=3).cuda()
-            self.model = smp.Unet(
-                # encoder_depth=4,
-                # decoder_channels=[512,256, 128, 64,32],
-                in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-                classes=3,  # model output channels (number of classes in your dataset)
-                decoder_attention_type='scse'
-            ).cuda()
+            # self.model = smp.Unet(
+            #     # encoder_depth=4,
+            #     # decoder_channels=[512,256, 128, 64,32],
+            #     in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+            #     classes=3,  # model output channels (number of classes in your dataset)
+            #     decoder_attention_type='scse'
+            # ).cuda()
         self.automatic_optimization = True
 
     def get_model_info(self):

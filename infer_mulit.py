@@ -11,7 +11,7 @@ from albumentations.pytorch import ToTensorV2
 from matplotlib import pyplot as plt
 
 from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
-from train import mutil_train, mapping_color
+from start import mutil_train, mapping_color
 from utils import cal_std_mean
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

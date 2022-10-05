@@ -1,9 +1,12 @@
 import glob
 import os
 import cv2
-img_dir = r'F:\semantic_segmentation_unet\data\2022clinic'
+import matplotlib.pyplot as plt
+import numpy as np
+
+img_dir = r'F:\semantic_segmentation_unet\data\All_clinic'
 # TEST_MASK_DIR = r'F:\opencv\socket_demo\export'
-mask_dir = r'F:\semantic_segmentation_unet\data\clinic_mask'
+mask_dir = r'F:\semantic_segmentation_unet\data\All_clinic_mask'
 def rename(file, prefix=''):
     '''
 
@@ -27,20 +30,23 @@ def convert_BGR(file):
     img = cv2.imread(file)
     img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
     cv2.imwrite(file,img)
+def rot_img(file,key):
+    file_name = os.path.basename(file)
+    if file_name[0] in key:
+        return
+    else:
+        print(f'{file} rotated' )
+        img = cv2.imread(file)
+
+        # plt.imshow(img)
+        # plt.show()
+        img = np.rot90(img,2)
+        cv2.imwrite(file, img)
+
 
 filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.tiff")))
 filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
 
-for i in filename_img:
-    convert_BGR(i)
-
-# a =['79-','8-','80-','81-']
-# # b =['79_','8_','80_','81_']
-# print(sorted(a))
-# # print(sorted(b))
-#
-# bnm = sorted(list(map(os.path.basename, filename_mask)))
-# bn = sorted(list(map(os.path.basename, filename_img)))
-#
-# for i, j in zip(bn, bnm):
-#     print(i, j)
+for i ,j in zip(filename_img,filename_mask):
+    rot_img(i,key=['p','W'])
+    rot_img(j,key=['p','W'])

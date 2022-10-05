@@ -39,7 +39,7 @@ def main():
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
-            A.ColorJitter(brightness=0.3, p=0.2),
+            A.ColorJitter(brightness=0.3,contrast=0.3,saturation=0,hue=0, p=0.3),
             A.Rotate(limit=10, p=0.2),
             A.HorizontalFlip(p=0.2),            # A.VerticalFlip(p=0.2),
             A.Normalize(
