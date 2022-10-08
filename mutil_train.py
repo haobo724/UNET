@@ -52,37 +52,24 @@ class mutil_train(pl.LightningModule):
                 in_channels=3,
                 classes=3,
             ).cuda()
-            print(f'[INFO] Use {self.model_name}')
         elif self.model_name == 'Unet-vgg16':
             self.model = smp.Unet(encoder_name='vgg16_bn',
                                   in_channels=3,
                                   classes=3,  # model output channels (number of classes in your dataset)
                                   ).cuda()
-            print(f'[INFO] Use {self.model_name}')
-        elif self.model_name == 'Unet-inceptionresnetv2':
-            self.model = smp.Unet(encoder_name='resnet101',
-                                          in_channels=3,
-                                          classes=3,
-                                          ).cuda()
-            print(f'[INFO] Use {self.model_name}')
         elif self.model_name == 'Unet-pp-res':
             self.model = smp.UnetPlusPlus(
-                in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-                classes=3,  # model output channels (number of classes in your dataset)
+                in_channels=3,
+                classes=3,
             ).cuda()
-            print(f'[INFO] Use {self.model_name}')
         elif self.model_name == 'Unet-at-res':
             self.model = AttentionUNet(img_ch=3, output_ch=3, res=True).cuda()
 
-            print(f'[INFO] Use {self.model_name}')
-        elif self.model_name == 'Unet-vgg-res':
-            self.model = AttentionUNet(img_ch=3, output_ch=3, res=False).cuda()
-
-            print(f'[INFO] Use {self.model_name}')
         else:
             raise NameError('model name wrong')
             # self.model = UNET_S(in_channels=3, out_channels=3).cuda()
             # self.model=smp.UnetPlusPlus(in_channels=3,classes=3).cuda()
+        print(f'[INFO] Use {self.model_name}')
 
         self.automatic_optimization = True
 
