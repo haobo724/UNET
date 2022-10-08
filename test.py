@@ -348,7 +348,7 @@ if __name__ == "__main__":
                          classes=3,  # model output channels (number of classes in your dataset)
                          # decoder_attention_type='scse'
                          ).cuda()
-    summary(model_res, (3, 480, 640))
+    # summary(model_res, (3, 480, 640))
 
     model_pp = smp.UnetPlusPlus(
         # encoder_depth=4,
@@ -359,7 +359,7 @@ if __name__ == "__main__":
     ).cuda()
 
     A = AttentionUNet(res=True)
-    A2 = AttentionUNet(res=False)
+    # A2 = AttentionUNet(res=False)
     # print("in shape:", in_tensor.shape)
     # out_tensor = A(in_tensor)
     # print("out shape:", out_tensor.shape)
@@ -368,5 +368,5 @@ if __name__ == "__main__":
     get_model_parametersum(model_res)
     get_model_parametersum(model_pp)
     get_model_parametersum(A)
-    get_model_parametersum(A2)
-    summary(A2, (3, 480, 640))
+    # get_model_parametersum(A2)
+    # summary(A2, (3, 480, 640))

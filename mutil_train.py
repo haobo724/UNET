@@ -11,9 +11,9 @@ import torchvision
 from matplotlib import pyplot as plt
 
 from model import UNet_PP, UNET_S, UNET
+from test import AttentionUNet
 from utils import FocalLoss
 
-from test import AttentionUNet
 torch.cuda.empty_cache()
 
 
@@ -46,27 +46,51 @@ class mutil_train(pl.LightningModule):
         # self.loss = nn.CrossEntropyLoss()
         self.loss = FocalLoss(gamma=2)
         self.iou = torchmetrics.classification.iou.IoU(num_classes=3, absent_score=1, reduction='none').cuda()
-        if hparams['model'] != 'Unet':
-            self.model = UNet_PP(num_classes=3, input_channels=3).cuda()
-            print('[INFO] Use Unet++')
+        self.model_name = hparams['model']
+        if self.model_name == 'Unet-res':
+            self.model = smp.Unet(
+                in_channels=3,
+                classes=3,
+            ).cuda()
+            print(f'[INFO] Use {self.model_name}')
+        elif self.model_name == 'Unet-vgg16':
+            self.model = smp.Unet(encoder_name='vgg16_bn',
+                                  in_channels=3,
+                                  classes=3,  # model output channels (number of classes in your dataset)
+                                  ).cuda()
+            print(f'[INFO] Use {self.model_name}')
+        elif self.model_name == 'Unet-inceptionresnetv2':
+            self.model = smp.Unet(encoder_name='resnet101',
+                                          in_channels=3,
+                                          classes=3,
+                                          ).cuda()
+            print(f'[INFO] Use {self.model_name}')
+        elif self.model_name == 'Unet-pp-res':
+            self.model = smp.UnetPlusPlus(
+                in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                classes=3,  # model output channels (number of classes in your dataset)
+            ).cuda()
+            print(f'[INFO] Use {self.model_name}')
+        elif self.model_name == 'Unet-at-res':
+            self.model = AttentionUNet(img_ch=3, output_ch=3, res=True).cuda()
+
+            print(f'[INFO] Use {self.model_name}')
+        elif self.model_name == 'Unet-vgg-res':
+            self.model = AttentionUNet(img_ch=3, output_ch=3, res=False).cuda()
+
+            print(f'[INFO] Use {self.model_name}')
         else:
+            raise NameError('model name wrong')
             # self.model = UNET_S(in_channels=3, out_channels=3).cuda()
-            self.model = AttentionUNet(img_ch=3, output_ch=3,res=True).cuda()
             # self.model=smp.UnetPlusPlus(in_channels=3,classes=3).cuda()
-            # self.model = smp.Unet(
-            #     # encoder_depth=4,
-            #     # decoder_channels=[512,256, 128, 64,32],
-            #     in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-            #     classes=3,  # model output channels (number of classes in your dataset)
-            #     decoder_attention_type='scse'
-            # ).cuda()
+
         self.automatic_optimization = True
 
     def get_model_info(self):
         try:
             name = self.model.name
         except:
-            name = 'Unet_S'
+            name = self.model_name
         return name
 
     def configure_optimizers(self):
@@ -79,7 +103,7 @@ class mutil_train(pl.LightningModule):
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=5,
-                                                                        verbose=True, threshold=0.01,
+                                                                        verbose=True, threshold=0.005,
                                                                         threshold_mode='rel', cooldown=3, min_lr=1e-08,
                                                                         eps=1e-08),
                 "monitor": "val_Iou",
@@ -157,7 +181,6 @@ class mutil_train(pl.LightningModule):
         # self.log('valid_ACC', avg_acc, logger=True)
         lr = self.optimizers().param_groups[0]['lr']
         self.log('lr', lr, logger=True)
-        print('lr', lr)
 
         # If the selected scheduler is a ReduceLROnPlateau scheduler.
         # if isinstance(sch, torch.optim.lr_scheduler.ReduceLROnPlateau):

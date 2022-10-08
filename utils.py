@@ -268,12 +268,11 @@ def get_testloaders(test_dir,
 def add_training_args(parent_parser):
     parser = ArgumentParser(parents=[parent_parser], add_help=False)
 
-    parser.add_argument('--data_folder', nargs='+', type=str)
     parser.add_argument("--worker", type=int, default=8)
     parser.add_argument("--batch_size", type=int, default=4)
-    parser.add_argument('--mode_size', type=int, default=64)
-    parser.add_argument("--model", type=str, default='Unet')
+    parser.add_argument("--model", type=str, default='Unet-pp-res')
     parser.add_argument("--Continue", type=bool, default=False)
+    parser.add_argument("--seed", type=int,required=True, default=1000)
 
     return parser
 
