@@ -2,6 +2,7 @@ import os
 from argparse import ArgumentParser
 
 import albumentations as A
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -126,6 +127,9 @@ def get_loaders(
         j = os.path.split(j)[-1]
         train_img.append(i)
         train_mask.append(j)
+
+
+
     train_ds = CarvanaDataset(
         image_dir=train_dir,
         mask_dir=train_maskdir,
@@ -162,7 +166,8 @@ def get_loaders(
 
     return train_loader, val_loader
 
-
+def load_k_fold(i):
+    return np.load(f'Nr_{i}.npy', allow_pickle=True)
 def get_loaders_multi(
         train_dir,
         train_maskdir,
@@ -176,23 +181,27 @@ def get_loaders_multi(
         seed=1234
 ):
 
-    X = glob.glob(os.path.join(train_dir,'*.jpg') )
-    y = glob.glob(os.path.join(train_maskdir,'*.tiff'))
-    X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.1, random_state=seed)
-    train_img = []
-    train_mask = []
-    val_img = []
-    val_mask = []
-    for i, j in zip(X_test, y_test):
-        i = os.path.basename(i)
-        j = os.path.basename(j)
-        val_img.append(i)
-        val_mask.append(j)
-    for i, j in zip(X_train, y_train):
-        i = os.path.basename(i)
-        j = os.path.basename(j)
-        train_img.append(i)
-        train_mask.append(j)
+    # X = glob.glob(os.path.join(train_dir,'*.jpg') )
+    # y = glob.glob(os.path.join(train_maskdir,'*.tiff'))
+    # # X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.1, random_state=seed)
+    # train_img = []
+    # train_mask = []
+    # val_img = []
+    # val_mask = []
+
+    train_img,train_mask,val_img,val_mask=load_k_fold(seed)
+
+
+    # for i, j in zip(X_test, y_test):
+    #     i = os.path.basename(i)
+    #     j = os.path.basename(j)
+    #     val_img.append(i)
+    #     val_mask.append(j)
+    # for i, j in zip(X_train, y_train):
+    #     i = os.path.basename(i)
+    #     j = os.path.basename(j)
+    #     train_img.append(i)
+    #     train_mask.append(j)
 
     train_ds = CarvanaDataset_multi(
         image_dir=train_dir,
@@ -272,7 +281,7 @@ def add_training_args(parent_parser):
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--model", type=str, default='Unet-pp-res')
     parser.add_argument("--Continue", type=bool, default=False)
-    parser.add_argument("--seed", type=int,required=True, default=1000)
+    parser.add_argument("--fold_nr", type=int,required=True, default=1)
 
     return parser
 

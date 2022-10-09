@@ -70,7 +70,7 @@ def main(args):
         val_transforms,
         args.worker,
         PIN_MEMORY,
-        seed=args.seed
+        seed=args.fold_nr
     )
 
     print('Train images:', len(train_loader) * args.batch_size)
