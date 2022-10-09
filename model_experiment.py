@@ -9,9 +9,7 @@ TRAIN_IMG_DIR = "F:\semantic_segmentation_unet\data\All_clinic"
 TRAIN_MASK_DIR = "F:\semantic_segmentation_unet\data\All_clinic_mask"
 if __name__ == "__main__":
 
-    # X = glob.glob(os.path.join(TRAIN_IMG_DIR,'*.jpg') )
     images = os.listdir(TRAIN_IMG_DIR)
-    # masks = glob.glob(os.path.join(TRAIN_MASK_DIR,'*.tiff'))
     masks = os.listdir(TRAIN_MASK_DIR)
     images = np.array(images)
     masks = np.array(masks)
@@ -28,8 +26,8 @@ if __name__ == "__main__":
         # print(X_train)
         # print("%s %s" % (train, test))
         file = np.load(f'Nr_{i}.npy',allow_pickle=True)
-        print(file[0].shape)
-        print(file[1].shape)
+        print(file[0])
+        print(file[1])
         print(file[2].shape)
         print(file[3].shape)
         i+=1

@@ -189,8 +189,7 @@ def get_loaders_multi(
     # val_img = []
     # val_mask = []
 
-    train_img,train_mask,val_img,val_mask=load_k_fold(seed)
-
+    train_img,val_img,train_mask,val_mask=load_k_fold(seed)
 
     # for i, j in zip(X_test, y_test):
     #     i = os.path.basename(i)
