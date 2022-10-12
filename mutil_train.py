@@ -73,19 +73,12 @@ class mutil_train(pl.LightningModule):
 
         self.automatic_optimization = True
 
-    def get_model_info(self):
-        try:
-            name = self.model.name
-        except:
-            name = self.model_name
-        return name
+
 
     def configure_optimizers(self):
         print(self.hparams)
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
-        #        scheduler  =torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10,
-        # verbose=True, threshold=0.01, threshold_mode='rel', cooldown=3, min_lr=1e-08, eps=1e-08)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
@@ -116,6 +109,9 @@ class mutil_train(pl.LightningModule):
             self.log("val_Iou", 0)
             self.init_val_iou = False
 
+    def get_model_info(self):
+        return self.model_name
+
     def training_step(self, batch, batch_idx, dataset_idx=None):
         x, y = batch
         y_hat = self(x)
@@ -128,7 +124,6 @@ class mutil_train(pl.LightningModule):
         print('============start validation==============')
 
     def validation_step(self, batch, batch_idx, dataset_idx=None):
-        folder = "saved_images/"
         x, y = batch
         y_hat = self(x)
 
@@ -145,7 +140,7 @@ class mutil_train(pl.LightningModule):
         self.log("IOU0:", RS_IOU[0], prog_bar=True)
         self.log("IOU1:", RS_IOU[1], prog_bar=True)
         self.log("IOU2:", RS_IOU[2], prog_bar=True)
-
+        # folder = "saved_images/"
         # torchvision.utils.save_image(
         #     torchvision.utils.make_grid(pred.unsqueeze(1), nrow=self.hparams['batch_size'], normalize=True),
         #     f"{folder}/pred_{batch_idx}.png")
@@ -164,10 +159,10 @@ class mutil_train(pl.LightningModule):
         # avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
         # self.train_logger.info("Validatoin epoch {} ends, val_loss = {}".format(self.current_epoch, avg_loss))
         self.log('val_loss', avg_loss)
-        self.log('val_Iou', avg_iou, logger=True)
+        self.log('val_Iou', avg_iou, prog_bar=True,logger=True)
         # self.log('valid_ACC', avg_acc, logger=True)
         lr = self.optimizers().param_groups[0]['lr']
-        self.log('lr', lr, logger=True)
+        self.log('lr', lr, prog_bar=True,logger=True)
 
         # If the selected scheduler is a ReduceLROnPlateau scheduler.
         # if isinstance(sch, torch.optim.lr_scheduler.ReduceLROnPlateau):
@@ -279,11 +274,11 @@ class unet_train(pl.LightningModule):
 
         self.log("IOU:", RS_IOU[1], prog_bar=True)
 
-        torchvision.utils.save_image(
-            pred.unsqueeze(dim=1).cpu(), f"{folder}/pred_{batch_idx}.png"
-        )
-
-        torchvision.utils.save_image(y.float().unsqueeze(dim=1).cpu(), f"{folder}/label_{batch_idx}.png")
+        # torchvision.utils.save_image(
+        #     pred.unsqueeze(dim=1).cpu(), f"{folder}/pred_{batch_idx}.png"
+        # )
+        #
+        # torchvision.utils.save_image(y.float().unsqueeze(dim=1).cpu(), f"{folder}/label_{batch_idx}.png")
 
         return {"loss": loss,
                 "iou": RS_IOU[1],

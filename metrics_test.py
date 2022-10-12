@@ -11,18 +11,18 @@ from albumentations.pytorch import ToTensorV2
 from matplotlib import pyplot as plt
 
 from caculate import calculate_eval_matrix, calculate_IoU, calculate_acc
-from start import mutil_train, mapping_color
+from mutil_train import mutil_train
 from utils import cal_std_mean
-
+from infer_model import mapping_color
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 8
 
 PIN_MEMORY = True
 
-TEST_DIR = r'F:\Siemens\GreenPointpick\test_input'
-# TEST_DIR = r'F:\semantic_segmentation_unet\data\test_new'
-TEST_MASK_DIR = r'F:\Siemens\GreenPointpick\test_mask'
-# TEST_MASK_DIR = r'F:\semantic_segmentation_unet\data\test_new_mask'
+# TEST_DIR = r'F:\Siemens\GreenPointpick\test_input'
+TEST_DIR = r'F:\semantic_segmentation_unet\data\test_new'
+# TEST_MASK_DIR = r'F:\Siemens\GreenPointpick\test_mask'
+TEST_MASK_DIR = r'F:\semantic_segmentation_unet\data\test_new_mask'
 
 
 def add_training_args(parent_parser):
@@ -37,8 +37,8 @@ def add_training_args(parent_parser):
     return parser
 
 
-def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
-    only_breast = True
+def metrics(models, img_dir, mask_dir, sufix='sufix', post=True,roi =False,only_breast = True):
+
     IMAGE_HEIGHT = 480  # 1096 originally  0.25
     IMAGE_WIDTH = 640  # 1936 originally
     TRAIN_IMG_DIR = r"F:\semantic_segmentation_unet\data\All_clinic"
@@ -50,22 +50,29 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
 
     filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.tiff")))
     filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
-    bn = sorted(list(map(os.path.basename,filename_img)))
-    bnm = sorted(list(map(os.path.basename,filename_mask)))
-    # print(sorted(bn))
-    assert len(filename_mask) == len(filename_img)
-    for i ,j in zip(bn,bnm):
-        print(i,j)
-
-
     mask_sum = []
     pred_sum = []
-    for mask in filename_mask:
-        mask_img = cv2.imread(mask)[..., 0].astype(np.uint8)
-        if only_breast:
-            mask_img = np.where(mask_img > 0, 1, 0).astype(np.uint8)
-        mask_img = cv2.resize(mask_img, ( 640,480))
-        mask_sum.append(mask_img)
+    assert len(filename_mask) == len(filename_img)
+
+    if roi:
+        perspektiv_matrix = sorted(glob.glob(os.path.join('F:\Siemens\GreenPointpick\MA_test_masks', "*.npy")))
+        for mask,M in zip(filename_mask,perspektiv_matrix):
+            mask_img = cv2.imread(mask)[..., 0].astype(np.uint8)
+            if only_breast:
+                mask_img = np.where(mask_img > 0, 1, 0).astype(np.uint8)
+
+            mask_img = post_processing_roi(mask_img,M)
+            mask_sum.append(mask_img)
+
+
+    else:
+        for mask in filename_mask:
+            mask_img = cv2.imread(mask)[..., 0].astype(np.uint8)
+            if only_breast:
+                mask_img = np.where(mask_img > 0, 1, 0).astype(np.uint8)
+
+            mask_img = cv2.resize(mask_img, ( 640,480))
+            mask_sum.append(mask_img)
     mask_sum = np.array(mask_sum)
 
     parser = ArgumentParser()
@@ -84,20 +91,23 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
             ToTensorV2(),
         ],
     )
+
     input_sum = []
     with torch.no_grad():
         for index in range(len(filename_img)):
             input = cv2.imread(filename_img[index]).astype(np.uint8)
-            # input = np.rot90(input,-2)
-            # input = cv2.cvtColor(input,cv2.COLOR_BGR2RGB)
-            input_sum.append(input)
-
+            input_height,input_width = input.shape[0],input.shape[1]
+            if roi:
+                input_sum.append(post_processing_roi(input, perspektiv_matrix[index]))
+            else:
+                input_sum.append(input)
             resize_xform = A.Compose(
                 [
-                    A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH, interpolation=cv2.INTER_NEAREST),
+                    A.Resize(height=input_height, width=input_width, interpolation=cv2.INTER_NEAREST),
 
                 ],
             )
+
             input = infer_xform(image=input)
 
             x = input["image"].cuda()
@@ -114,6 +124,8 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
             if only_breast:
                 preds = np.where(preds > 0, 1, 0).astype(np.uint8)
                 preds = post_processing(preds) / 255
+            if roi:
+                preds = post_processing_roi(preds,perspektiv_matrix[index])
 
             # plt.figure()
             # plt.imshow(preds)
@@ -124,12 +136,11 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
             pred_sum.append(preds)
     pred_sum = np.array(pred_sum)
     input_sum = np.array(input_sum)
-    print(np.unique(mask_sum))
-    print(np.unique(pred_sum))
     iou = 0
     for  i ,j,img in zip(mask_sum,pred_sum,input_sum):
         eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), i.astype(np.uint8), j.astype(np.uint8))
         iou += calculate_IoU(eval_mat)[1]
+
         img = cv2.resize(img, ( 640,480))
         pred_color = np.stack([j for _ in range(3)], axis=-1)
         mask_color = np.stack([i for _ in range(3)], axis=-1)
@@ -151,6 +162,12 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True):
     # print('acc:', calculate_acc(eval_mat))
     std_acc, std_iou, var_acc, var_iou = single_metric(pred_sum, mask_sum, sufix=sufix, post=post)
     return np.mean(calculate_IoU(eval_mat)), calculate_acc(eval_mat), std_acc, std_iou, var_acc, var_iou
+
+def post_processing_roi(image,npy_path):
+    M = np.load(npy_path)
+    image = cv2.warpPerspective(image, M, (640, 480))
+    return image
+
 
 
 def post_processing(image):
@@ -197,13 +214,9 @@ def single_metric(preds, masks, sufix, post=True):
 
 
 if __name__ == "__main__":
-    '''
-    until 31.08.2021 best model is :: .\goodmodel\epoch=71-valid_IOU=0.821612.ckpt
 
-
-    '''
     modelslist = []
-    for root, dirs, files in os.walk(r"resnet"):
+    for root, dirs, files in os.walk(r"MA_model"):
         for file in files:
             if file.endswith('.ckpt'):
                 modelslist.append(os.path.join(root, file))
@@ -221,7 +234,7 @@ if __name__ == "__main__":
         sufix = modelslist[i].split('\\')[-1]
         print(modelslist[i], ':')
         i, a, std_acc, std_iou, var_acc, var_iou = metrics(modelslist[i], TEST_DIR, TEST_MASK_DIR,
-                                                           sufix=sufix, post=False)
+                                                           sufix=sufix, post=False,roi=True,only_breast = False)
         # iou.append(i)
         # acc.append(a)
         # std_accs.append(std_acc)
