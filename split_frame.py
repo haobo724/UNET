@@ -114,7 +114,7 @@ def copy_file(orgin_path, moved_path):
 
 
 if __name__ == '__main__':
-    video_path = r'F:\semantic_segmentation_unet\collected_data\7G'
+    video_path = r'F:\semantic_segmentation_unet\topvideop12'
     splited_frame_saved_path = 'output_test\picked'
     if not os.path.exists(splited_frame_saved_path):
         os.makedirs(splited_frame_saved_path)
@@ -123,8 +123,8 @@ if __name__ == '__main__':
 
     # to choose only then top video , can changed as *_bot.mp4 to choose the bot video or *.mp4 to choose all video
     videos = glob.glob(os.path.join(video_path, '*_top.mp4'))
-    split(r'F:\semantic_segmentation_unet\collected_data\7G\7G_patient30_top',splited_frame_saved_path,sample_rate=1)
-    input()
+    # split(r'F:\semantic_segmentation_unet\collected_data\7G\7G_patient30_top',splited_frame_saved_path,sample_rate=1)
+    # input()
     for video in videos:
         # rename(i,'7G_')
         split(video, splited_frame_saved_path, only_one_frame=False, idx=[], sample_rate=10)

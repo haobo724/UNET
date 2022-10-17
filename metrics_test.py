@@ -1,5 +1,6 @@
 import glob
 import os
+import time
 from argparse import ArgumentParser
 
 import albumentations as A
@@ -55,7 +56,7 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True,roi =False,only_
     assert len(filename_mask) == len(filename_img)
 
     if roi:
-        perspektiv_matrix = sorted(glob.glob(os.path.join('F:\Siemens\GreenPointpick\MA_test_masks', "*.npy")))
+        perspektiv_matrix = sorted(glob.glob(os.path.join('./test_pers_matrix', "*.npy")))
         for mask,M in zip(filename_mask,perspektiv_matrix):
             mask_img = cv2.imread(mask)[..., 0].astype(np.uint8)
             if only_breast:
@@ -71,14 +72,11 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True,roi =False,only_
             if only_breast:
                 mask_img = np.where(mask_img > 0, 1, 0).astype(np.uint8)
 
-            mask_img = cv2.resize(mask_img, ( 640,480))
             mask_sum.append(mask_img)
-    mask_sum = np.array(mask_sum)
-
     parser = ArgumentParser()
     parser = add_training_args(parser)
     args = parser.parse_args()
-
+    args.model = os.path.basename(models).split('_')[0]
     model = mutil_train.load_from_checkpoint(models, hparams=vars(args))
     infer_xform = A.Compose(
         [
@@ -93,6 +91,7 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True,roi =False,only_
     )
 
     input_sum = []
+    start_time = time.time()
     with torch.no_grad():
         for index in range(len(filename_img)):
             input = cv2.imread(filename_img[index]).astype(np.uint8)
@@ -134,34 +133,57 @@ def metrics(models, img_dir, mask_dir, sufix='sufix', post=True,roi =False,only_
             # preds = preds.squeeze(0)
 
             pred_sum.append(preds)
-    pred_sum = np.array(pred_sum)
-    input_sum = np.array(input_sum)
+    time_consume = time.time()-start_time
+    print('time used:',time_consume)
     iou = 0
-    for  i ,j,img in zip(mask_sum,pred_sum,input_sum):
-        eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), i.astype(np.uint8), j.astype(np.uint8))
-        iou += calculate_IoU(eval_mat)[1]
+    counter =0
+    for  mask ,pred,img in zip(mask_sum,pred_sum,input_sum):
 
-        img = cv2.resize(img, ( 640,480))
-        pred_color = np.stack([j for _ in range(3)], axis=-1)
-        mask_color = np.stack([i for _ in range(3)], axis=-1)
+        if only_breast:
+            eval_mat = calculate_eval_matrix(2, mask ,pred)
+            iou += calculate_IoU(eval_mat)
+        else:
+            eval_mat = calculate_eval_matrix(3, mask ,pred)
+            iou += calculate_IoU(eval_mat)
+
+
+        # img = cv2.resize(img, ( input_width,input_height))
+        pred_color = np.stack([pred for _ in range(3)], axis=-1)
+        mask_color = np.stack([mask for _ in range(3)], axis=-1)
         pc = mapping_color(pred_color)
         mc = mapping_color(mask_color)
         input_pc = cv2.addWeighted(img.astype(np.uint8),0.5,pc.astype(np.uint8),0.5,1)
         input_mc = cv2.addWeighted(img.astype(np.uint8),0.5,mc.astype(np.uint8),0.5,1)
-        result = np.concatenate([input_mc,input_pc,img],axis=1)
-        plt.figure()
-        plt.imshow(result)
-        plt.show()
-    print('Only brest iou:', iou/len(pred_sum))
 
-    eval_mat = calculate_eval_matrix(len(np.unique(mask_sum)), mask_sum, pred_sum)
-    print('indi IoU:', calculate_IoU(eval_mat))
-    print('IoU:', np.mean(calculate_IoU(eval_mat)[1:]))
+        cv2.imwrite(rf'./MA_infer/{counter}.jpg',img)
+        cv2.imwrite(rf'./MA_infer/{counter}_mask.jpg',input_mc)
+        counter +=1
+        # result = np.concatenate([img,input_mc,input_pc],axis=1)
+        # plt.figure()
+        # plt.subplot(121)
+        # plt.title("Input image")
+        # plt.imshow(img)
+        #
+        # plt.subplot(122)
+        # plt.title("Input mask")
+        #
+        # plt.imshow(input_mc)
+        #
+        # plt.show()
+
+
+    # print(iou)
+    # print('Only brest iou:', iou/len(pred_sum))
+
+
+    print('indi IoU:', iou/len(pred_sum))
+    print('IoU_breast:', np.mean((iou/len(pred_sum))[1:]))
+    print('IoU_mean:', np.mean(iou/len(pred_sum)))
     print('-' * 20)
 
     # print('acc:', calculate_acc(eval_mat))
     std_acc, std_iou, var_acc, var_iou = single_metric(pred_sum, mask_sum, sufix=sufix, post=post)
-    return np.mean(calculate_IoU(eval_mat)), calculate_acc(eval_mat), std_acc, std_iou, var_acc, var_iou
+    return np.mean(calculate_IoU(eval_mat)), calculate_acc(eval_mat), std_acc, std_iou, var_acc, var_iou,time_consume
 
 def post_processing_roi(image,npy_path):
     M = np.load(npy_path)
@@ -187,9 +209,9 @@ def post_processing(image):
     return thresh
 
 
-def single_metric(preds, masks, sufix, post=True):
+def single_metric(preds, masks, sufix, roi=True):
     sufix = sufix[:-5]
-    if post:
+    if roi:
         sufix = 'post' + sufix
     else:
         sufix = 'no-post' + sufix
@@ -231,10 +253,11 @@ if __name__ == "__main__":
     var_ious = []
     for i in range(len(modelslist)):
         # metrics(modelslist[picked], './data/val_images', './data/val_masks',sufix=sufix)
-        sufix = modelslist[i].split('\\')[-1]
+        sufix = os.path.basename(modelslist[i])
         print(modelslist[i], ':')
-        i, a, std_acc, std_iou, var_acc, var_iou = metrics(modelslist[i], TEST_DIR, TEST_MASK_DIR,
-                                                           sufix=sufix, post=False,roi=True,only_breast = False)
+        i, a, std_acc, std_iou, var_acc, var_iou ,time_consume= metrics(modelslist[i], TEST_DIR, TEST_MASK_DIR,
+                                                           sufix=sufix, post=False,roi=False,only_breast = False)
+        break
         # iou.append(i)
         # acc.append(a)
         # std_accs.append(std_acc)

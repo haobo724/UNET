@@ -4,9 +4,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-img_dir = r'F:\semantic_segmentation_unet\data\test_new'
-# TEST_MASK_DIR = r'F:\opencv\socket_demo\export'
-mask_dir = r'F:\semantic_segmentation_unet\data\test_new_mask'
+
 def rename(file, prefix=''):
     '''
 
@@ -44,6 +42,8 @@ def rot_img(file,key):
         cv2.imwrite(file, img)
 
 if __name__ == "__main__":
+    img_dir = r'F:\semantic_segmentation_unet\data\clinic_new'
+    mask_dir = r'F:\semantic_segmentation_unet\data\clinic_new_mask'
 
     filename_mask = sorted(glob.glob(os.path.join(mask_dir, "*.tiff")))
     filename_img = sorted(glob.glob(os.path.join(img_dir, "*.jpg")))
