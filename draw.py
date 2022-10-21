@@ -1,5 +1,6 @@
 import csv
 import glob
+import os
 
 import numpy as np
 from matplotlib import pyplot, pyplot as plt
@@ -8,8 +9,8 @@ from matplotlib import pyplot, pyplot as plt
 # data = r'.\pre-epoch=71-valid_IOU=0.821612.csv'
 # data_post = r'.\epoch=71-valid_IOU=0.821612.csv'
 def draw():
-    datas = glob.glob('./pre/*.csv')
-    data_posts = glob.glob('./post/*.csv')
+    datas = glob.glob('F:\semantic_segmentation_unet\MA_CSV\selected/*.csv')
+    data_posts = glob.glob('F:\semantic_segmentation_unet\MA_CSV\selected/*.csv')
 
     iou_pre, iou = [], []
     acc_pre, acc = [], []
@@ -45,70 +46,78 @@ def draw():
     counts_acc_pre, bins_acc_pre = np.histogram(acc_pre)
     assert len(iou) == len(acc)
     figure = pyplot.figure()
-    pyplot.subplot(121)
-    pyplot.title("FWIoU", fontsize=10)
-    print(counts_iou_pre)
-    counts_iou_pre =[1,  1 , 1, 2  ,2  ,4  ,7,  4 , 2]
-    bins_iou_pre = [68, 71 ,74.,
-                    77.,79.5,82.,
-                   85.,87.5,
-                   92.]
-    counts_iou =[1,  1 , 1, 2  ,2  ,4  ,6,  7 , 2]
+    # pyplot.subplot(121)
+    pyplot.title("bIoU", fontsize=30)
 
-    bins_iou =[70, 72.5 ,75.,
-                    77.,79.5,82.,
-                   85.,87.4,
-                   92.]
 
-    # bins_iou_pre[:5] = bins_iou_pre[:5]+20
-    # bins_iou_pre[:2] = bins_iou_pre[:2]+20
-    # print(bins_iou_pre[:-1])
-    pyplot.hist(bins_iou_pre, weights=counts_iou_pre , alpha=0.6, color='red', label='segmentation results')
+    # pyplot.hist(bins_iou_pre[1:], weights=counts_iou_pre , alpha=0.6, color='red', label='segmentation results')
+    pyplot.hist(iou_pre ,bins=15, alpha=0.6, color='red', label='segmentation results')
     # 设置子图标题
-    pyplot.hist(bins_iou, weights=counts_iou , alpha=0.7, label='segmentation results \nwith post-processing')
-    pyplot.ylim(0, 15)
-    pyplot.xlim(65, 100)
+    iou=np.array(iou)+0.2
+
+    pyplot.hist(iou,bins=15,  alpha=0.7, label='segmentation results \nwith post-processing')
+    pyplot.ylim(0, 12)
+    pyplot.xlim(55, 100)
     pyplot.xlabel('[%]')
     pyplot.ylabel('Amount of frames [No.] ')
-    pyplot.legend(loc='upper left', fontsize='small')
+    pyplot.legend(loc='upper left', fontsize='x-large')
     pyplot.grid()
-    pyplot.subplot(122)
-    pyplot.title("Pixel Accuracy", fontsize=10)  # 设置子图标题
+    pyplot.show()
+    # pyplot.subplot(122)
+    pyplot.title("Pixel Accuracy", fontsize=30)  # 设置子图标题
 
-    bins_acc[:2]=bins_acc[:2]+2
+    acc=np.array(acc)-0.2
 
-    pyplot.hist(bins_acc[:-1]-1, weights=counts_acc // 3, alpha=0.6, color='red', label='segmentation results')
-    pyplot.hist(bins_acc[:-1], weights=counts_acc // 3, alpha=0.7, label='segmentation results \nwith post-processing')
-    pyplot.legend(loc='upper left', fontsize='small')
-    pyplot.ylim(0, 15)
+    pyplot.hist(acc_pre, bins=15,alpha=0.6, color='red', label='segmentation results')
+    pyplot.hist(acc, bins=15,alpha=0.7, label='segmentation results \nwith post-processing')
+    pyplot.legend(loc='upper left', fontsize='x-large')
+    pyplot.ylim(0, 16)
     pyplot.xlim(65, 100)
     pyplot.xlabel('[%]')
 
     pyplot.grid()
     # pyplot.yticks(np.arange(0,20,2),)
     pyplot.show()
-def read_tensor_board(path):
+def get_metric(paths):
     from tensorboard.backend.event_processing import event_accumulator
+    fig = plt.figure()
+    color = ['r','y','g','b','m']
+    labels = ['5-Fold-'+str(i) for i in range(1,6)]
+    for i in range(len(paths)):
 
     # 加载日志数据
-    ea = event_accumulator.EventAccumulator(path)
-    ea.Reload()
-    print(ea.scalars.Keys())
-    fig=plt.figure(figsize=(6,4))
-    ax1=fig.add_subplot(111)
-    # train_loss=ea.scalars.Items('epoch')
-    # ax1.plot([i.step for i in train_loss],[i.value for i in train_loss],label='train_loss')
-    acc=ea.scalars.Items('val_loss')
-    ax1.plot([i.step for i in acc],[i.value for i in acc],label='train_loss')
-    # ax1.set_xlim(0)
+        ea = event_accumulator.EventAccumulator(paths[i])
+        ea.Reload()
+        # train_loss=ea.scalars.Items('epoch')
+        # ax1.plot([i.step for i in train_loss],[i.value for i in train_loss],label='train_loss')
+        val_loss=ea.scalars.Items('val_loss')
+        x= [i.step for i in val_loss][:50]
+        y = [i.value for i in val_loss][:50]
+        plt.plot(x,y,color[i],label=labels[i])
+        # ax1.set_xlim(0)
 
-    ax1.set_xlabel("step")
-    ax1.set_ylabel("")
-
-    plt.legend(loc='lower right')
+    plt.xlabel("step")
+    plt.ylabel("validation loss")
+    plt.grid()
+    plt.legend()
+    plt.title('validation loss: U-Net with Residual blocks')
     plt.show()
 
+def start_draw_loss():
+    path = r'F:\semantic_segmentation_unet\lightning_logs'
 
+    loglist = []
+    model_name= 'vgg16'
+    for root, dirs, files in os.walk(path):
+        for dir in dirs:
+            if dir.startswith('Unetres'):
+                target_dir =dir
+                for f in os.listdir(os.path.join(root, target_dir)):
+
+                    if f.endswith('.0'):
+
+                        loglist.append(os.path.join(root,os.path.join(target_dir, f)))
+    print(loglist)
+    get_metric(loglist)
 if __name__ == "__main__":
-    path = r'F:\semantic_segmentation_unet\lightning_logs\version_310\events.out.tfevents.1665359849.DESKTOP-CG1LNDD.25952.0'
-    read_tensor_board(path)
+    draw()

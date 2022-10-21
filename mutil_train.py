@@ -57,7 +57,7 @@ class mutil_train(pl.LightningModule):
                                   in_channels=3,
                                   classes=3,  # model output channels (number of classes in your dataset)
                                   ).cuda()
-        elif self.model_name == 'Unet-pp-res':
+        elif self.model_name == 'unetplusplus-resnet34':
             self.model = smp.UnetPlusPlus(
                 in_channels=3,
                 classes=3,

@@ -70,8 +70,8 @@ def cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH):
     # std:  tensor([0.2448, 0.2450, 0.2833])
 
     # output
-    print('mean: ' + str(tuple(total_mean)))
-    print('std:  ' + str(tuple(total_std)))
+    # print('mean: ' + str(tuple(total_mean)))
+    # print('std:  ' + str(tuple(total_std)))
     return total_mean, total_std
 
 

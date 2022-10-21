@@ -71,7 +71,7 @@ def calculate_eval_matrix(num_cls, labels, predictions):
     try:
         assert labels.shape == predictions.shape
     except AssertionError:
-        print('AssertionError:',labels.shape, predictions.shape)
+        print('AssertionError labels,predictions:',labels.shape, predictions.shape)
 
     # convert to same data type
     # n_batch = labels.shape[0]

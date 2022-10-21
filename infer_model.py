@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 import torch
 from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
-from infer import add_training_args
+from utils import add_training_args
 from mutil_train import mutil_train
 from start import TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
 from utils import cal_std_mean
