@@ -27,7 +27,6 @@ class CarvanaDataset(Dataset):
         mask_path = os.path.join(self.mask_dir, self.masks[index])
         img = imageio.imread(img_path)
         image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
         mask = cv2.imread(mask_path)[..., 0].astype(np.float32)
         if np.max(mask) != 1:
             if len(np.unique(mask)) == 2:

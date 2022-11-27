@@ -10,8 +10,9 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
 # from matplotlib import pyplot as plt
+from utils import cal_std_mean
 
-from mutil_train import unet_train
+from mutil_train import mutil_train, unet_train
 from utils import (
     get_testloaders,
     get_loaders
@@ -37,30 +38,31 @@ VAL_MASK_DIR = "data/oldds/all_masks/"
 test_dir = r"C:\Users\94836\Desktop\test_data"
 test_maskdir = r"C:\Users\94836\Desktop\test_data"
 
+
 # mean_value, std_value = cal_std_mean(TRAIN_IMG_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 
 
 def add_training_args(parent_parser):
     parser = ArgumentParser(parents=[parent_parser], add_help=False)
 
-    parser.add_argument('--data_folder', nargs='+', type=str)
     parser.add_argument("--worker", type=int, default=8)
     parser.add_argument("--batch_size", type=int, default=4)
-    parser.add_argument('--mode_size', type=int, default=64)
     parser.add_argument("--model", type=str, default='Unet')
 
     return parser
 
 
 def main():
-    mean_value =(0.3651, 0.3123, 0.2926)
-    std_value=(0.3383, 0.3004, 0.2771)
 
+    mean_value,std_value = cal_std_mean(TRAIN_IMG_DIR,IMAGE_HEIGHT,IMAGE_WIDTH)
     pl.seed_everything(1111)
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            A.ColorJitter(brightness=0.3, hue=0.3, p=0.3),
+            A.ColorJitter(brightness=0.3, hue=0.3,
+                          contrast=0.2,
+                          saturation=0.2, p=0.3),
+            # A.ColorJitter(brightness=0.3, hue=0.3, p=0.3),
             A.Rotate(limit=5, p=1.0),
             A.HorizontalFlip(p=0.3),
             A.VerticalFlip(p=0.2),
@@ -90,10 +92,10 @@ def main():
     parser = ArgumentParser()
     parser = add_training_args(parser)
     parser = pl.Trainer.add_argparse_args(parser)
-    parser = unet_train.add_model_specific_args(parser)
+    parser = mutil_train.add_model_specific_args(parser)
     args = parser.parse_args()
 
-    model = unet_train(hparams=vars(args)).cuda()
+    model = unet_train(hparams=vars(args),outputchannel=1).cuda()
 
     train_loader, val_loader = get_loaders(
         TRAIN_IMG_DIR,
@@ -107,20 +109,19 @@ def main():
         PIN_MEMORY,
         seed=1111
     )
-    if args.mode_size == 32:
-        name = 'S'
-    elif args.mode_size == 16:
-        name = 'XS'
-    else:
-        name = 'M'
+    model_name = model.get_model_info()
+
+    prefix = model_name + '_' + str(IMAGE_WIDTH) + '_' + str(IMAGE_HEIGHT)
     ckpt_callback = ModelCheckpoint(
         monitor='val_Iou',
         save_top_k=1,
         mode='max',
-        filename=f'{name}'+'{epoch:02d}-{val_Iou:.2f}',
+        filename='{}'.format(prefix) + '-{epoch:02d}-{val_Iou:.2f}',
+
         save_last=True
 
     )
+
     # logger = TensorBoardLogger(save_dir=os.path.join('.', 'lightning_logs'))
     trainer = pl.Trainer.from_argparse_args(args, check_val_every_n_epoch=3, log_every_n_steps=5,
                                             callbacks=[ckpt_callback])

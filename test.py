@@ -358,15 +358,15 @@ if __name__ == "__main__":
         # decoder_attention_type='scse'
     ).cuda()
 
-    A = AttentionUNet(res=True)
+    # A = AttentionUNet(res=True)
     # A2 = AttentionUNet(res=False)
     # print("in shape:", in_tensor.shape)
     # out_tensor = A(in_tensor)
     # print("out shape:", out_tensor.shape)
 
-    get_model_parametersum(model_vgg)
+    # get_model_parametersum(model_vgg)
     get_model_parametersum(model_res)
-    get_model_parametersum(model_pp)
-    get_model_parametersum(A)
+    # get_model_parametersum(model_pp)
+    # get_model_parametersum(A)
     # get_model_parametersum(A2)
-    # summary(A2, (3, 480, 640))
+    summary(model_res, (3, 480, 640))

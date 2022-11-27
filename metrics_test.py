@@ -41,7 +41,7 @@ def add_training_args(parent_parser):
 
 
 def metrics(models, img_dir, mask_dir, mean_value, std_value, sufix='', matrix_dir='./test_pers_matrix', roi=False,
-            only_breast=True, show=False):
+            only_breast=True, saved=False):
     if img_dir is None or models is None:
         ValueError('raw_dir or model is missing')
 
@@ -151,12 +151,13 @@ def metrics(models, img_dir, mask_dir, mean_value, std_value, sufix='', matrix_d
         pc = mapping_color(pred_color)
         mc = mapping_color(mask_color)
         input_pc = cv2.addWeighted(img.astype(np.uint8), 0.8, pc.astype(np.uint8), 0.2, 1)
-        input_mc = cv2.addWeighted(img.astype(np.uint8), 0.5, mc.astype(np.uint8), 0.5, 1)
+        input_mc = cv2.addWeighted(img.astype(np.uint8), 0.8, mc.astype(np.uint8), 0.2, 1)
 
-        cv2.imwrite(rf'./MA_infer/{counter}.jpg', img)
-        cv2.imwrite(rf'./MA_infer/{counter}_mask.jpg', input_mc)
+        # cv2.imwrite(rf'./MA_infer/{counter}.jpg', img)
+        # cv2.imwrite(rf'./MA_infer/{counter}_mask.jpg', input_mc)
+        # cv2.imwrite(rf'./MA_infer/{counter}_pred.jpg', input_pc)
         counter += 1
-        if show:
+        if saved:
 
             # input_pc = cv2.resize(input_pc, (640, 480))
             # img = cv2.resize(img, (640, 480))
@@ -170,7 +171,7 @@ def metrics(models, img_dir, mask_dir, mean_value, std_value, sufix='', matrix_d
                 cv2.imwrite(rf".\MA_infer_result\{args.model}_Result_{counter}.png", input_pc)
                 cv2.imwrite(rf".\MA_infer_result\reference_{counter}.png", img)
                 cv2.imwrite(rf".\MA_infer_result\reference_mask_{counter}.png", input_mc)
-    if show:
+    if saved:
         return
 
         # print(iou)
@@ -214,7 +215,7 @@ def post_processing(image):
     return thresh
 
 
-def single_metric(preds, masks, sufix, roi=True, only_breast=True):
+def single_metric(preds, masks, sufix, roi=False, only_breast=False):
     sufix = sufix[:-5]
     if roi:
         sufix = 'post_' + sufix
@@ -238,7 +239,11 @@ def single_metric(preds, masks, sufix, roi=True, only_breast=True):
     dataframe = pd.DataFrame({'std_iou': std_iou.tolist(), 'std_acc': std_acc.tolist(), 'var_iou': var_iou.tolist(),
                               'var_acc': var_acc.tolist(), }, index=[0])
     dataframe = pd.concat([data, dataframe])
-    dataframe.to_csv(f"MA_CSV/{sufix}.csv", index=True, sep=',')
+    if roi:
+        dataframe.to_csv(f"MA_CSV/{sufix}.csv", index=True, sep=',')
+    else:
+        dataframe.to_csv(f"MA_CSV/{sufix}_roi.csv", index=True, sep=',')
+
     # print(std_acc, std_iou, var_acc, var_iou)
     print('-' * 20)
     return std_acc, std_iou, var_acc, var_iou
@@ -272,13 +277,15 @@ def start_metrics(model_name='', model_index=None, show=False):
                     Final_TEST_MASK_DIR,
                     mean_value, std_value,
                     sufix=sufix, matrix_dir='F:\semantic_segmentation_unet\MA_TEST_npy',roi=False,
-                    only_breast=False,show=False)
+                    only_breast=False,saved=False)
         else:
             miou, a, std_acc, std_iou, var_acc, var_iou, time_consume = metrics(modelslist[model_index], TEST_DIR,
                                                                             TEST_MASK_DIR,
                                                                             mean_value, std_value,
-                                                                            sufix=sufix, roi=False,
-                                                                            only_breast=True)
+                                                                            sufix=sufix, roi=True,
+                                                                            only_breast=False,saved=False)
+
+            print('std_acc', np.array(std_acc).mean())
 
         return
     for i in range(len(modelslist)):
@@ -286,8 +293,8 @@ def start_metrics(model_name='', model_index=None, show=False):
         print(modelslist[i], ':')
         miou, a, std_acc, std_iou, var_acc, var_iou, time_consume = metrics(modelslist[i], TEST_DIR, TEST_MASK_DIR,
                                                                             mean_value, std_value,
-                                                                            sufix=sufix, roi=True,
-                                                                            only_breast=False)
+                                                                            sufix=sufix, roi=False,
+                                                                            only_breast=True)
         if miou > best_iou:
             best_iou = miou
             counter = i
@@ -299,18 +306,20 @@ def start_metrics(model_name='', model_index=None, show=False):
         var_accs.append(var_acc)
         var_ious.append(var_iou)
         time_used.append(time_consume)
-    print('iou', np.array(iou).mean())
-    print('acc', np.array(acc).mean())
-    print('time_used', np.array(time_used[1:]).mean())
-    sufix = os.path.basename(modelslist[counter])
-    Final_TEST_DIR = '.\MA_TEST_data'
-    Final_TEST_MASK_DIR = 'F:\semantic_segmentation_unet\MA_TEST_mask'
-    print(f'best model is {counter}')
-    metrics(modelslist[counter], Final_TEST_DIR, Final_TEST_MASK_DIR,
-            mean_value, std_value,
-            sufix=sufix, matrix_dir='F:\semantic_segmentation_unet\MA_TEST_npy', roi=True,
-            only_breast=False,
-            show=True)
+
+    print('std_acc', np.array(std_acc).mean())
+    # print('iou', np.array(iou).mean())
+    # print('acc', np.array(acc).mean())
+    # print('time_used', np.array(time_used[1:]).mean())
+    # sufix = os.path.basename(modelslist[counter])
+    # Final_TEST_DIR = '.\MA_TEST_data'
+    # Final_TEST_MASK_DIR = 'F:\semantic_segmentation_unet\MA_TEST_mask'
+    # print(f'best model is {counter}')
+    # metrics(modelslist[counter], Final_TEST_DIR, Final_TEST_MASK_DIR,
+    #         mean_value, std_value,
+    #         sufix=sufix, matrix_dir='F:\semantic_segmentation_unet\MA_TEST_npy', roi=True,
+    #         only_breast=False,
+    #         show=True)
 
 
 if __name__ == "__main__":

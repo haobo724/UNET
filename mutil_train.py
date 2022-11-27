@@ -38,7 +38,7 @@ def mapping_color_tensor(img):
 
 
 class mutil_train(pl.LightningModule):
-    def __init__(self, hparams):
+    def __init__(self, hparams,outputchannel = 1):
         super().__init__()
         self.hparams.__init__(hparams)
         self.lr = self.hparams['lr']
@@ -50,20 +50,20 @@ class mutil_train(pl.LightningModule):
         if self.model_name == 'Unet-res':
             self.model = smp.Unet(
                 in_channels=3,
-                classes=3,
+                classes=outputchannel,
             ).cuda()
         elif self.model_name == 'Unet-vgg16':
             self.model = smp.Unet(encoder_name='vgg16_bn',
                                   in_channels=3,
-                                  classes=3,  # model output channels (number of classes in your dataset)
+                                  classes=outputchannel,  # model output channels (number of classes in your dataset)
                                   ).cuda()
         elif self.model_name == 'unetplusplus-resnet34':
             self.model = smp.UnetPlusPlus(
                 in_channels=3,
-                classes=3,
+                classes=outputchannel,
             ).cuda()
         elif self.model_name == 'Unet-at-res':
-            self.model = AttentionUNet(img_ch=3, output_ch=3, res=True).cuda()
+            self.model = AttentionUNet(img_ch=3, output_ch=outputchannel, res=True).cuda()
 
         else:
             raise NameError('model name wrong')
@@ -135,11 +135,11 @@ class mutil_train(pl.LightningModule):
         self.log("val_loss", loss)
 
         y = y.long()
-        RS_IOU = self.iou(pred.long(), y.unsqueeze(1))
 
-        self.log("IOU0:", RS_IOU[0], prog_bar=True)
-        self.log("IOU1:", RS_IOU[1], prog_bar=True)
-        self.log("IOU2:", RS_IOU[2], prog_bar=True)
+        RS_IOU = self.iou(pred.long(), y.unsqueeze(1))
+        for i in range(len(RS_IOU)):
+            self.log(f"IOU{i}:", RS_IOU[i], prog_bar=True)
+
         # folder = "saved_images/"
         # torchvision.utils.save_image(
         #     torchvision.utils.make_grid(pred.unsqueeze(1), nrow=self.hparams['batch_size'], normalize=True),
@@ -149,7 +149,7 @@ class mutil_train(pl.LightningModule):
         #     f"{folder}/label_{batch_idx}.png")
 
         return {"val_loss": loss,
-                "iou": (RS_IOU[1] + RS_IOU[2]) / 2, }
+                "iou": np.mean(RS_IOU[1:]) }
         # 'acc': acc}
 
     def validation_epoch_end(self, outputs):
@@ -164,14 +164,7 @@ class mutil_train(pl.LightningModule):
         lr = self.optimizers().param_groups[0]['lr']
         self.log('lr', lr, prog_bar=True,logger=True)
 
-        # If the selected scheduler is a ReduceLROnPlateau scheduler.
-        # if isinstance(sch, torch.optim.lr_scheduler.ReduceLROnPlateau):
-        #     sch.step(self.trainer.callback_metrics["val_Iou"])
-        #     print('val_Iou',self.trainer.callback_metrics["val_Iou"])
-        #
-        #     # print('real lr',self.optimizers().param_groups[0]['lr'])
-        #     # print('all',self.optimizers().param_groups[0])
-        #     # print('all lr_schedulers',lr)
+
         print('============end validation==============')
 
     def test_step(self, batch, batch_idx, dataset_idx=None):
@@ -205,22 +198,19 @@ class mutil_train(pl.LightningModule):
 
 
 class unet_train(pl.LightningModule):
-    def __init__(self, hparams):
+    def __init__(self, hparams,outputchannel=1):
         super().__init__()
-        try:
-            if hparams['mode_size'] == 32:
-                print('small size')
-                self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-            elif hparams['mode_size'] == 16:
-                print('Xsmall size')
-                self.model = UNET_S(in_channels=3, out_channels=1, features=[16, 32, 64, 128]).cuda()
-            else:
-                self.model = UNET(in_channels=3, out_channels=1).cuda()
-        except:
-            self.model = UNET_S(in_channels=3, out_channels=1).cuda()
-        if hparams['model'] != 'Unet':
-            self.model = UNet_PP(num_classes=1, input_channels=3).cuda()
-            print('Use Unet++')
+        self.model_name = hparams['model']
+        if self.model_name  != 'Unet':
+            self.model = smp.Unet(
+                in_channels=3,
+                classes=outputchannel,
+            ).cuda()
+        else:
+            self.model = smp.Unet(
+                in_channels=3,
+                classes=outputchannel,
+            ).cuda()
         self.weights = torch.tensor(np.array([0.2, 0.8])).float()
         self.loss = nn.BCEWithLogitsLoss()
         self.train_logger = logging.getLogger(__name__)
@@ -234,6 +224,8 @@ class unet_train(pl.LightningModule):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--lr', type=float, default=1e-4)
         return parser
+    def get_model_info(self):
+        return self.model_name
 
     def forward(self, x):
         return self.model(x)
